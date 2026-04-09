@@ -1,0 +1,176 @@
+.ms-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ms-container {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.ms-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  background: rgba(10, 14, 28, 0.6);
+  border-bottom: 1px solid var(--border);
+}
+
+.ms-topbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  gap: 14px;
+}
+
+.ms-topbar__right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.ms-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+}
+
+.ms-brand__mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.25);
+}
+
+.ms-brand__name {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1.05;
+}
+
+.ms-brand__tag {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.ms-nav {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.ms-nav__link {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.84);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.ms-nav__link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.ms-auth {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ms-auth__link {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.84);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.ms-auth__button {
+  background: transparent;
+  cursor: pointer;
+}
+
+.ms-auth__user {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ms-auth__link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.ms-auth__cta {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(124, 58, 237, 0.42);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.75), rgba(34, 211, 238, 0.45));
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.ms-auth__cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.ms-main {
+  flex: 1;
+  padding: 28px 0 40px;
+}
+
+.ms-footer {
+  border-top: 1px solid var(--border);
+  background: rgba(10, 14, 28, 0.35);
+}
+
+.ms-footer__inner {
+  padding: 18px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .ms-brand {
+    min-width: 0;
+  }
+
+  .ms-nav {
+    display: none;
+  }
+
+  .ms-auth__link {
+    display: none;
+  }
+
+  .ms-footer__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

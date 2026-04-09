@@ -1,0 +1,56 @@
+.ms-authPage {
+  margin: 0 auto;
+  width: min(520px, 100%);
+}
+
+.ms-authHeader {
+  margin-bottom: 12px;
+}
+
+.ms-authTitle {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.4px;
+}
+
+.ms-authSubtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.ms-form {
+  padding: 16px;
+}
+
+.ms-formRow {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ms-formLabel {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+}
+
+.ms-formError {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.24);
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.ms-formFooter {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 13px;
+}
+
+.ms-formFooter a {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: underline;
+}
+
