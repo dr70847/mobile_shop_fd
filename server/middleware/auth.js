@@ -16,5 +16,13 @@ function requireAuth(req, res, next) {
   }
 }
 
-module.exports = { requireAuth };
+function requireAdmin(req, res, next) {
+  const ok = req.user && (req.user.is_admin === true || req.user.is_admin === 1);
+  if (!ok) {
+    return res.status(403).json({ message: "Admin access required." });
+  }
+  return next();
+}
+
+module.exports = { requireAuth, requireAdmin };
 

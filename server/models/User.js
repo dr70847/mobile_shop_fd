@@ -15,7 +15,7 @@ const User = {
 
   findById: (id, callback) => {
     db.query(
-      "SELECT id, NAME AS name, email, created_at FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, NAME AS name, email, is_admin, created_at FROM users WHERE id = ? LIMIT 1",
       [id],
       callback
     );

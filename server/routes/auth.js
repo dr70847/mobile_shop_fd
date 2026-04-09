@@ -8,7 +8,12 @@ const router = express.Router();
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, name: user.name || "" },
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+      is_admin: Boolean(user.is_admin),
+    },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -42,7 +47,7 @@ router.post("/signup", (req, res) => {
           console.error("auth/signup create:", err2.code || err2.message);
           return res.status(500).json({ message: "Database error." });
         }
-        const user = { id: result.insertId, name, email };
+        const user = { id: result.insertId, name, email, is_admin: false };
         const token = signToken(user);
         return res.json({ token, user });
       });
@@ -70,7 +75,12 @@ router.post("/login", (req, res) => {
     const ok = await bcrypt.compare(password, userRow.PASSWORD || "");
     if (!ok) return res.status(401).json({ message: "Invalid email or password." });
 
-    const user = { id: userRow.id, name: userRow.NAME, email: userRow.email };
+    const user = {
+      id: userRow.id,
+      name: userRow.NAME,
+      email: userRow.email,
+      is_admin: Boolean(userRow.is_admin),
+    };
     const token = signToken(user);
     return res.json({ token, user });
   });
@@ -81,6 +91,7 @@ router.get("/me", requireAuth, (req, res) => {
     if (err) return res.status(500).json({ message: "Database error." });
     const user = rows && rows[0];
     if (!user) return res.status(404).json({ message: "User not found." });
+    user.is_admin = Boolean(user.is_admin);
     return res.json({ user });
   });
 });

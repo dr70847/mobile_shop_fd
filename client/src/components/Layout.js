@@ -3,6 +3,11 @@ import { Link } from "react-router-dom";
 import { AuthContext } from "../auth/AuthContext";
 import "./layout.css";
 
+function isAdminUser(user) {
+  if (!user) return false;
+  return user.is_admin === true || user.is_admin === 1;
+}
+
 export default function Layout({ children }) {
   const { user, logout } = useContext(AuthContext);
 
@@ -32,6 +37,11 @@ export default function Layout({ children }) {
               <Link className="ms-nav__link" to="/support">
                 Support
               </Link>
+              {isAdminUser(user) ? (
+                <Link className="ms-nav__link" to="/admin">
+                  Admin
+                </Link>
+              ) : null}
             </nav>
 
             <div className="ms-auth" aria-label="Account">

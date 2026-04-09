@@ -21,7 +21,24 @@ const Product = {
             [ids],
             callback
         );
-    }
+    },
+    create: ({ name, description, price, stock }, callback) => {
+        db.query(
+            'INSERT INTO products (NAME, description, price, stock) VALUES (?, ?, ?, ?)',
+            [name, description || '', Number(price), Number(stock) || 0],
+            callback
+        );
+    },
+    update: (id, { name, description, price, stock }, callback) => {
+        db.query(
+            'UPDATE products SET NAME = ?, description = ?, price = ?, stock = ? WHERE id = ?',
+            [name, description || '', Number(price), Number(stock) || 0, id],
+            callback
+        );
+    },
+    delete: (id, callback) => {
+        db.query('DELETE FROM products WHERE id = ?', [id], callback);
+    },
 };
 
 module.exports = Product;

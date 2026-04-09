@@ -5,8 +5,10 @@ USE mobile_shop;
 
 CREATE TABLE IF NOT EXISTS products (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
+  NAME VARCHAR(255) NOT NULL,
+  description TEXT,
   price DECIMAL(10,2) NOT NULL,
+  stock INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -24,13 +26,13 @@ CREATE TABLE IF NOT EXISTS users (
   NAME VARCHAR(120) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   PASSWORD VARCHAR(255) NOT NULL,
+  is_admin TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed data (optional)
-INSERT INTO products (name, price)
+-- Seed data (optional) — column NAME matches server/models/Product.js
+INSERT INTO products (NAME, description, price, stock)
 VALUES
-  ('iPhone 15', 999.00),
-  ('Samsung Galaxy S24', 899.00),
-  ('Google Pixel 9', 799.00);
-
+  ('iPhone 15', 'Latest Apple', 999.00, 10),
+  ('Samsung Galaxy S24', 'Android flagship', 899.00, 10),
+  ('Google Pixel 9', 'Pure Android', 799.00, 10);

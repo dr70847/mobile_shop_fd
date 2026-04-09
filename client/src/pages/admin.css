@@ -1,0 +1,73 @@
+.ms-adminPage {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 0 40px;
+}
+
+.ms-adminForm {
+  max-width: 640px;
+}
+
+.ms-adminForm__row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+@media (max-width: 560px) {
+  .ms-adminForm__row2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ms-adminBack {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.ms-adminBack:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.ms-adminTableWrap {
+  overflow-x: auto;
+}
+
+.ms-adminTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ms-adminTable th,
+.ms-adminTable td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: middle;
+}
+
+.ms-adminTable th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ms-adminTable__actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.ms-adminTable__actions .ms-btn + .ms-btn {
+  margin-left: 8px;
+}
+
+.ms-input--table {
+  width: 100%;
+  min-width: 120px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
