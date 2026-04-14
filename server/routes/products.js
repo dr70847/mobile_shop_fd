@@ -4,6 +4,21 @@ const Product = require('../models/Product');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const adminChain = [requireAuth, requireAdmin];
+const apiVersionPath = "/api/v1/products";
+
+function rootUrl(req) {
+    return `${req.protocol}://${req.get("host")}`;
+}
+
+function withLinks(req, product) {
+    return {
+        ...product,
+        _links: {
+            self: { href: `${rootUrl(req)}${apiVersionPath}/${product.id}` },
+            collection: { href: `${rootUrl(req)}${apiVersionPath}` },
+        },
+    };
+}
 
 router.post('/', ...adminChain, (req, res) => {
     const name = String(req.body?.name || '').trim();
@@ -29,7 +44,7 @@ router.post('/', ...adminChain, (req, res) => {
                 if (err2 || !rows || !rows[0]) {
                     return res.status(201).json({ id: result.insertId });
                 }
-                return res.status(201).json(rows[0]);
+                return res.status(201).json(withLinks(req, rows[0]));
             });
         }
     );
@@ -67,7 +82,7 @@ router.put('/:id', ...adminChain, (req, res) => {
                 if (err2 || !rows || !rows[0]) {
                     return res.status(200).json({ id });
                 }
-                return res.json(rows[0]);
+                return res.json(withLinks(req, rows[0]));
             });
         }
     );
@@ -98,14 +113,22 @@ router.delete('/:id', ...adminChain, (req, res) => {
 router.get('/', (req, res) => {
     Product.getAll((err, results) => {
         if (err) return res.status(500).json(err);
-        res.json(results);
+        res.json({
+            items: results.map((product) => withLinks(req, product)),
+            _links: {
+                self: { href: `${rootUrl(req)}${apiVersionPath}` },
+            },
+        });
     });
 });
 
 router.get('/:id', (req, res) => {
     Product.getById(req.params.id, (err, results) => {
         if (err) return res.status(500).json(err);
-        res.json(results[0]);
+        if (!results || !results[0]) {
+            return res.status(404).json({ message: "Product not found." });
+        }
+        res.json(withLinks(req, results[0]));
     });
 });
 

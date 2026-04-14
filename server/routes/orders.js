@@ -3,18 +3,40 @@ const router = express.Router();
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { requireAuth } = require('../middleware/auth');
+const apiVersionPath = "/api/v1/orders";
+
+function rootUrl(req) {
+    return `${req.protocol}://${req.get("host")}`;
+}
+
+function withLinks(req, order) {
+    return {
+        ...order,
+        _links: {
+            self: { href: `${rootUrl(req)}${apiVersionPath}/${order.id || ""}`.replace(/\/$/, "") },
+            myOrders: { href: `${rootUrl(req)}${apiVersionPath}/my` },
+            checkout: { href: `${rootUrl(req)}${apiVersionPath}/checkout` },
+        },
+    };
+}
 
 router.get('/', (req, res) => {
     Order.getAll((err, results) => {
         if (err) return res.status(500).json(err);
-        res.json(results);
+        res.json({
+            items: results.map((order) => withLinks(req, order)),
+            _links: { self: { href: `${rootUrl(req)}${apiVersionPath}` } },
+        });
     });
 });
 
 router.get('/my', requireAuth, (req, res) => {
     Order.getByUserId(req.user.id, (err, results) => {
         if (err) return res.status(500).json(err);
-        res.json(results);
+        res.json({
+            items: results.map((order) => withLinks(req, order)),
+            _links: { self: { href: `${rootUrl(req)}${apiVersionPath}/my` } },
+        });
     });
 });
 
@@ -61,7 +83,13 @@ router.post('/checkout', requireAuth, (req, res) => {
             { userId: req.user.id, totalPrice: Number(totalPrice.toFixed(2)), status: 'NEW', items: orderItems },
             (err2, result) => {
                 if (err2) return res.status(500).json({ message: 'Database error.' });
-                res.json({ orderId: result.orderId });
+                res.json({
+                    orderId: result.orderId,
+                    _links: {
+                        self: { href: `${rootUrl(req)}${apiVersionPath}/${result.orderId}` },
+                        myOrders: { href: `${rootUrl(req)}${apiVersionPath}/my` },
+                    },
+                });
             }
         );
     });
@@ -70,7 +98,10 @@ router.post('/checkout', requireAuth, (req, res) => {
 router.get('/user/:userId', (req, res) => {
     Order.getByUserId(req.params.userId, (err, results) => {
         if (err) return res.status(500).json(err);
-        res.json(results);
+        res.json({
+            items: results.map((order) => withLinks(req, order)),
+            _links: { self: { href: `${rootUrl(req)}${apiVersionPath}/user/${req.params.userId}` } },
+        });
     });
 });
 
