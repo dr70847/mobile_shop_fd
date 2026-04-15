@@ -20,6 +20,17 @@ const User = {
       callback
     );
   },
+
+  getAll: (callback) => {
+    db.query(
+      "SELECT id, NAME AS name, email, is_admin, created_at FROM users ORDER BY created_at DESC",
+      callback
+    );
+  },
+
+  setAdminRole: (id, isAdmin, callback) => {
+    db.query("UPDATE users SET is_admin = ? WHERE id = ?", [isAdmin ? 1 : 0, id], callback);
+  },
 };
 
 module.exports = User;

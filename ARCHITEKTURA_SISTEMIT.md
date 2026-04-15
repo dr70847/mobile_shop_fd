@@ -276,3 +276,62 @@ Test strategy:
 - Cdo service ka owner, pipeline dhe lifecycle te vet.
 - Breaking changes ne API behet me versionim.
 - Shto feature flags per migrim pa downtime.
+
+## 12) Modularizimi i Sistemit (implementuar)
+
+Sistemi eshte ndare ne modulet e pavarura me abstraksione te qarta ne `server/modules/`:
+
+- `authentication`
+- `user-management`
+- `business-operations`
+- `statistics-reporting`
+
+Registry qendror i moduleve:
+- `server/modules/registry.js`
+
+### Interfaqe publike (API) per cdo modul
+
+- **Authentication**
+  - `POST /api/v1/auth/signup`
+  - `POST /api/v1/auth/login`
+  - `POST /api/v1/auth/oauth/token`
+  - `GET /api/v1/auth/me`
+- **User Management**
+  - `GET /api/v1/users`
+  - `GET /api/v1/users/:id`
+  - `PATCH /api/v1/users/:id/role`
+- **Business Operations**
+  - `GET /api/v1/products`
+  - `GET /api/v1/products/:id`
+  - `POST /api/v1/products`
+  - `PUT /api/v1/products/:id`
+  - `DELETE /api/v1/products/:id`
+  - `GET /api/v1/orders`
+  - `GET /api/v1/orders/my`
+  - `POST /api/v1/orders/checkout`
+- **Statistics & Reporting**
+  - `GET /api/v1/stats/overview`
+  - `GET /api/v1/stats/reports/sales-by-day`
+  - `GET /api/v1/stats/monitoring/modules`
+
+### Dokumentim teknik per cdo modul
+
+Dokumentimi teknik gjendet ne:
+- `server/docs/modules/authentication.md`
+- `server/docs/modules/user-management.md`
+- `server/docs/modules/business-operations.md`
+- `server/docs/modules/statistics-reporting.md`
+
+Leximi dinamik i dokumentimit ne runtime:
+- `GET /docs/modules/:moduleName`
+
+### Logging dhe monitoring i brendshem
+
+Observability e perbashket eshte implementuar ne:
+- `server/modules/shared/moduleObservability.js`
+
+Funksionalitete:
+- logging per cdo request (module, route, status code, latency)
+- metrika in-memory per cdo modul/route (request count, error count, avg latency)
+- endpoint monitorimi:
+  - `GET /api/v1/stats/monitoring/modules`
