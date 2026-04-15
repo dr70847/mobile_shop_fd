@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const productsRoutes = require("./presentation/productsRoutes");
+const { startCatalogGrpcServer } = require("./integration/grpcCatalogServer");
 
 dotenv.config();
 
@@ -19,3 +20,5 @@ const port = process.env.PORT ? Number(process.env.PORT) : 4002;
 app.listen(port, () => {
   console.log(`catalog-service running on http://localhost:${port}`);
 });
+
+startCatalogGrpcServer();

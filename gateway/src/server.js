@@ -32,6 +32,8 @@ function proxyFor(serviceName, pathRewrite = {}) {
 app.use("/api/v1/auth", proxyFor("auth", { "^/api/v1/auth": "/auth" }));
 app.use("/api/v1/products", proxyFor("catalog", { "^/api/v1/products": "/products" }));
 app.use("/api/v1/orders", proxyFor("order", { "^/api/v1/orders": "/orders" }));
+app.use("/api/v1/inventory", proxyFor("inventory", { "^/api/v1/inventory": "/api/inventory" }));
+app.use("/api/v1/admin", proxyFor("admin", { "^/api/v1/admin": "/api/admin" }));
 app.use("/auth", proxyFor("auth"));
 app.use("/products", proxyFor("catalog"));
 app.use("/orders", proxyFor("order"));

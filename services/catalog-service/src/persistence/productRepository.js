@@ -22,6 +22,19 @@ function getById(id) {
   });
 }
 
+function getManyByIds(ids) {
+  return new Promise((resolve, reject) => {
+    db.query(
+      "SELECT id, price, stock FROM products WHERE id IN (?)",
+      [ids],
+      (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows);
+      }
+    );
+  });
+}
+
 function create({ name, description, price, stock }) {
   return new Promise((resolve, reject) => {
     db.query(
@@ -57,4 +70,4 @@ function remove(id) {
   });
 }
 
-module.exports = { getAll, getById, create, update, remove };
+module.exports = { getAll, getById, getManyByIds, create, update, remove };

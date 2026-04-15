@@ -22,7 +22,13 @@ const Products = () => {
       .get("/products")
       .then((res) => {
         if (cancelled) return;
-        setProducts(Array.isArray(res.data) ? res.data : []);
+        const payload = res?.data;
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : [];
+        setProducts(list);
       })
       .catch((err) => {
         if (cancelled) return;

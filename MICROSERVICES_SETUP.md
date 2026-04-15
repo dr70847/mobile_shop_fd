@@ -3,8 +3,13 @@
 Ky setup implementon:
 - API Gateway
 - Service Discovery mechanism (registry statik + lookup opsional nga Consul)
-- 3 microservices te pavarura: `auth-service`, `catalog-service`, `order-service`
-- deploy i pavarur me `docker-compose.microservices.yml`
+- Backend mix enterprise:
+  - `auth-service` (Express.js)
+  - `catalog-service` (Express.js + gRPC server)
+  - `order-service` (Express.js + RabbitMQ/Kafka producer + gRPC client)
+  - `inventory-service` (Spring Boot)
+  - `admin-service` (Django + DRF)
+- Deploy i pavarur me `docker-compose.microservices.yml`
 
 ## Struktura
 
@@ -12,6 +17,8 @@ Ky setup implementon:
 - `services/auth-service/`
 - `services/catalog-service/`
 - `services/order-service/`
+- `services/inventory-service-spring/`
+- `services/admin-service-django/`
 
 Secili service ka ndarje ne shtresa:
 - `presentation`
@@ -59,9 +66,22 @@ Ne `gateway/src/serviceDiscovery.js`:
   - `ORDER_SERVICE_URL`
 - eshte shtuar edhe funksion `lookupViaConsul()` per lookup dinamik nga Consul.
 
+## Mesazheri dhe gRPC
+
+- RabbitMQ: `amqp://localhost:5672` (management UI: `http://localhost:15672`)
+- Kafka: `localhost:9092`
+- gRPC catalog endpoint: `localhost:50052`
+
+`order-service` publikon eventin `order-created` ne RabbitMQ dhe Kafka.
+Per validim me latence te ulet, `order-service` ben call gRPC te `catalog-service`.
+
+## Frontend
+
+- Frontend mbetet `React`.
+- U shtua `Redux Toolkit` (`catalogSlice`) dhe route dinamike: `/products/:id`.
+
 ## Hapi i radhes (rekomanduar)
 
-- Nxirre edhe `catalog-service` dhe `order-service` ne strukturen e plote me
-  `presentation/business/persistence/integration` si `auth-service`.
-- shto contract tests mes services.
-- shto CI/CD pipeline per secilin service vecmas.
+- Shto persistence reale per `inventory-service` dhe `admin-service`.
+- Shto auth interoperability (JWT verification shared middleware/contracts).
+- Shto integration tests per flow: checkout -> event bus -> consumers.

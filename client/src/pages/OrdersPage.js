@@ -16,7 +16,15 @@ export default function OrdersPage() {
       setError("");
       try {
         const res = await axios.get("/orders/my");
-        if (!cancelled) setOrders(Array.isArray(res.data) ? res.data : []);
+        if (!cancelled) {
+          const payload = res?.data;
+          const list = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.items)
+              ? payload.items
+              : [];
+          setOrders(list);
+        }
       } catch (err) {
         if (!cancelled) setError(err?.response?.data?.message || "Failed to load orders.");
       } finally {
@@ -49,7 +57,7 @@ export default function OrdersPage() {
               <div className="ms-supportItem" key={o.id}>
                 <div className="ms-supportItem__title">Order #{o.id}</div>
                 <div className="ms-supportItem__text">
-                  Product ID: {o.product_id} • Qty: {o.quantity} • Date:{" "}
+                  Total: ${Number(o.total_price || 0).toFixed(2)} • Status: {o.status || "NEW"} • Date:{" "}
                   {o.created_at ? new Date(o.created_at).toLocaleString() : "-"}
                 </div>
               </div>

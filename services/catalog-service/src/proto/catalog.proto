@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package catalog;
+
+service CatalogService {
+  rpc GetProductsByIds (ProductsRequest) returns (ProductsResponse);
+}
+
+message ProductsRequest {
+  repeated int32 ids = 1;
+}
+
+message ProductLite {
+  int32 id = 1;
+  double price = 2;
+  int32 stock = 3;
+}
+
+message ProductsResponse {
+  repeated ProductLite products = 1;
+}

@@ -22,7 +22,13 @@ export default function AdminPage() {
     setLoading(true);
     try {
       const res = await axios.get("/products");
-      setProducts(Array.isArray(res.data) ? res.data : []);
+      const payload = res?.data;
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : [];
+      setProducts(list);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Failed to load products.");
     } finally {

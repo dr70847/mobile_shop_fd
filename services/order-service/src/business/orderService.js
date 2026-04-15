@@ -1,5 +1,7 @@
 const orders = require("../persistence/orderRepository");
 const catalog = require("../persistence/catalogReadRepository");
+const { checkAvailability } = require("../integration/grpcCatalogClient");
+const { publishOrderCreated } = require("../integration/messageBus");
 
 async function listOrders() {
   return orders.getAll();
@@ -27,8 +29,14 @@ async function checkout(userId, body) {
   }
 
   const ids = [...new Set(cleaned.map((it) => it.product_id))];
-  const rows = await catalog.getProductsByIds(ids);
+  let rows = [];
+  try {
+    rows = await checkAvailability(ids);
+  } catch {
+    rows = await catalog.getProductsByIds(ids);
+  }
   const priceById = new Map(rows.map((p) => [p.id, Number(p.price || 0)]));
+  const stockById = new Map(rows.map((p) => [p.id, Number(p.stock || Number.MAX_SAFE_INTEGER)]));
 
   let total = 0;
   const lineItems = [];
@@ -36,6 +44,11 @@ async function checkout(userId, body) {
     if (!priceById.has(it.product_id)) {
       const err = new Error(`Unknown product_id: ${it.product_id}`);
       err.status = 400;
+      throw err;
+    }
+    if (stockById.has(it.product_id) && it.quantity > stockById.get(it.product_id)) {
+      const err = new Error(`Insufficient stock for product_id: ${it.product_id}`);
+      err.status = 409;
       throw err;
     }
     const unitPrice = priceById.get(it.product_id);
@@ -50,6 +63,13 @@ async function checkout(userId, body) {
   });
   const orderItems = lineItems.map((v) => [created.id, v[0], v[1], v[2]]);
   await orders.addOrderItems(orderItems);
+  await publishOrderCreated({
+    orderId: created.id,
+    userId,
+    total: Number(total.toFixed(2)),
+    items: cleaned,
+    createdAt: new Date().toISOString(),
+  });
 
   return { orderId: created.id };
 }

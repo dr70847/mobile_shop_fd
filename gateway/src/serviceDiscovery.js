@@ -2,12 +2,16 @@ const staticRegistry = {
   auth: process.env.AUTH_SERVICE_URL || "http://localhost:4001",
   catalog: process.env.CATALOG_SERVICE_URL || "http://localhost:4002",
   order: process.env.ORDER_SERVICE_URL || "http://localhost:4003",
+  inventory: process.env.INVENTORY_SERVICE_URL || "http://localhost:8081",
+  admin: process.env.ADMIN_SERVICE_URL || "http://localhost:8001",
 };
 
 const serviceMap = {
   auth: process.env.AUTH_SERVICE_NAME || "auth-service",
   catalog: process.env.CATALOG_SERVICE_NAME || "catalog-service",
   order: process.env.ORDER_SERVICE_NAME || "order-service",
+  inventory: process.env.INVENTORY_SERVICE_NAME || "inventory-service",
+  admin: process.env.ADMIN_SERVICE_NAME || "admin-service",
 };
 
 async function lookupViaConsul(serviceName) {

@@ -7,6 +7,7 @@ import SignupPage from './pages/SignupPage';
 import SupportPage from './pages/SupportPage';
 import OrdersPage from './pages/OrdersPage';
 import AdminPage from './pages/AdminPage';
+import ProductDetailsPage from './pages/ProductDetailsPage';
 import RequireAuth from './routes/RequireAuth';
 import RequireAdmin from './routes/RequireAdmin';
 
@@ -19,6 +20,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/support" element={<SupportPage />} />
+          <Route path="/products/:id" element={<ProductDetailsPage />} />
           <Route
             path="/orders"
             element={

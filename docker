@@ -1,0 +1,29 @@
+## Frameworks & Teknologjitë
+
+Ky projekt përdor framework-e enterprise-level për të mbështetur shkallëzim, mirëmbajtje dhe performancë të lartë.
+
+### Backend
+
+- **Spring Boot (Java)** për shërbime core me logjikë biznesi komplekse.
+- **Django + Django REST Framework (Python)** për API të strukturuara dhe admin workflows.
+- **Express.js (Node.js)** për API Gateway/BFF dhe shërbime lightweight.
+
+### Frontend
+
+- **React.js** si framework kryesor për SPA.
+- **Routing dinamik** me React Router.
+- **State management** me **Redux** (Redux Toolkit).
+
+> Alternativat enterprise të pranueshme: **Angular** ose **Vue.js** me **Vuex**.
+
+### Komunikimi ndër-service
+
+- **RabbitMQ** dhe/ose **Kafka** për komunikim asinkron me mesazhe/evente.
+- **gRPC** për komunikim sinkron me performancë të lartë ndërmjet shërbimeve.
+
+### Parime të implementimit
+
+- Arkitekturë e bazuar në mikroshërbime.
+- API contracts të qarta për çdo shërbim.
+- Decoupling përmes message broker-ave.
+- Latencë e ulët për operacionet kritike përmes gRPC.
