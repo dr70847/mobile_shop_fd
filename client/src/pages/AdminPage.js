@@ -3,10 +3,13 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import "../components/products.css";
 import "./admin.css";
+import { useNotification } from "../ui/NotificationContext";
+import ConfirmActionDialog from "../ui/components/ConfirmActionDialog";
 
 const emptyForm = { name: "", description: "", price: "", stock: "0" };
 
 export default function AdminPage() {
+  const { showToast } = useNotification();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -16,6 +19,7 @@ export default function AdminPage() {
   const [editForm, setEditForm] = useState(() => ({ ...emptyForm }));
   const [editBusy, setEditBusy] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const loadProducts = useCallback(async () => {
     setError("");
@@ -53,6 +57,7 @@ export default function AdminPage() {
       });
       setAddForm({ ...emptyForm });
       await loadProducts();
+      showToast("Product added.", "success");
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Could not add product.");
     } finally {
@@ -89,6 +94,7 @@ export default function AdminPage() {
       });
       cancelEdit();
       await loadProducts();
+      showToast("Product updated.", "success");
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Could not update product.");
     } finally {
@@ -97,13 +103,13 @@ export default function AdminPage() {
   }
 
   async function removeProduct(id) {
-    if (!window.confirm("Remove this product from the catalog?")) return;
     setDeleteId(id);
     setError("");
     try {
       await axios.delete(`/products/${id}`);
       if (editId === id) cancelEdit();
       await loadProducts();
+      showToast("Product removed.", "success");
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Could not delete product.");
     } finally {
@@ -278,12 +284,7 @@ export default function AdminPage() {
                             <button className="ms-btn ms-btn--mini" type="button" onClick={() => startEdit(p)}>
                               Edit
                             </button>
-                            <button
-                              className="ms-btn ms-btn--mini"
-                              type="button"
-                              onClick={() => removeProduct(p.id)}
-                              disabled={deleteId === p.id}
-                            >
+                            <button className="ms-btn ms-btn--mini" type="button" onClick={() => setPendingDeleteId(p.id)} disabled={deleteId === p.id}>
                               {deleteId === p.id ? "…" : "Remove"}
                             </button>
                           </>
@@ -297,6 +298,19 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+      <ConfirmActionDialog
+        open={Boolean(pendingDeleteId)}
+        title="Delete product"
+        description="This action will permanently remove this product from the catalog."
+        confirmLabel="Delete"
+        confirmColor="error"
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={() => {
+          const id = pendingDeleteId;
+          setPendingDeleteId(null);
+          if (id) removeProduct(id);
+        }}
+      />
     </div>
   );
 }

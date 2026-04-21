@@ -1,15 +1,14 @@
 import React, { useContext } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../auth/AuthContext";
+import { getUserRole } from "../utils/roles";
 import "./layout.css";
-
-function isAdminUser(user) {
-  if (!user) return false;
-  return user.is_admin === true || user.is_admin === 1;
-}
 
 export default function Layout({ children }) {
   const { user, logout } = useContext(AuthContext);
+  const role = getUserRole(user);
+  const canAccessManager = role === "manager" || role === "admin";
+  const canAccessAdmin = role === "admin";
 
   return (
     <div className="ms-shell">
@@ -34,10 +33,20 @@ export default function Layout({ children }) {
               <Link className="ms-nav__link" to="/orders">
                 My orders
               </Link>
+              {user ? (
+                <Link className="ms-nav__link" to="/dashboard">
+                  Dashboard
+                </Link>
+              ) : null}
+              {canAccessManager ? (
+                <Link className="ms-nav__link" to="/manager">
+                  Manager
+                </Link>
+              ) : null}
               <Link className="ms-nav__link" to="/support">
                 Support
               </Link>
-              {isAdminUser(user) ? (
+              {canAccessAdmin ? (
                 <Link className="ms-nav__link" to="/admin">
                   Admin
                 </Link>
