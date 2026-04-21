@@ -74,4 +74,16 @@ async function checkout(userId, body) {
   return { orderId: created.id };
 }
 
-module.exports = { listOrders, listMyOrders, checkout };
+async function handleInventoryEvent(eventType, payload) {
+  const orderId = Number(payload?.orderId);
+  if (!Number.isFinite(orderId) || orderId <= 0) return false;
+
+  let nextStatus = null;
+  if (eventType === "inventory.reserved") nextStatus = "CONFIRMED";
+  if (eventType === "inventory.rejected") nextStatus = "CANCELLED";
+  if (!nextStatus) return false;
+
+  return orders.updateStatus(orderId, nextStatus);
+}
+
+module.exports = { listOrders, listMyOrders, checkout, handleInventoryEvent };

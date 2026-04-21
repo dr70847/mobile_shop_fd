@@ -44,4 +44,13 @@ function addOrderItems(items) {
   });
 }
 
-module.exports = { getAll, getByUserId, createOrder, addOrderItems };
+function updateStatus(orderId, status) {
+  return new Promise((resolve, reject) => {
+    db.query("UPDATE orders SET STATUS = ? WHERE id = ?", [status, Number(orderId)], (err, result) => {
+      if (err) return reject(err);
+      resolve(result.affectedRows > 0);
+    });
+  });
+}
+
+module.exports = { getAll, getByUserId, createOrder, addOrderItems, updateStatus };

@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const orderRoutes = require("./presentation/orderRoutes");
+const { startInventoryEventConsumer } = require("./integration/inventoryEventConsumer");
 
 dotenv.config();
 
@@ -19,3 +20,8 @@ const port = process.env.PORT ? Number(process.env.PORT) : 4003;
 app.listen(port, () => {
   console.log(`order-service running on http://localhost:${port}`);
 });
+
+const enableConsumer = String(process.env.ENABLE_INVENTORY_EVENT_CONSUMER || "true").toLowerCase() !== "false";
+if (enableConsumer) {
+  startInventoryEventConsumer();
+}

@@ -119,3 +119,11 @@ mobile-shop/
 ```
 
 This README is a **project map** so you can quickly remember what each part does and how to run it end-to-end.
+
+## Supporting model diagrams
+
+See `DIAGRAMAT_MBESHTETESE_MODELIT.md` for:
+- Component Diagram
+- Sequence Diagram (API calls)
+- Deployment Diagram
+- State Diagram (dynamic entity lifecycle)

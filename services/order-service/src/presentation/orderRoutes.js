@@ -28,4 +28,21 @@ router.post("/checkout", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/events/inventory", async (req, res) => {
+  const expectedKey = process.env.INTERNAL_API_KEY;
+  const receivedKey = req.headers["x-internal-api-key"];
+  if (expectedKey && receivedKey !== expectedKey) {
+    return res.status(401).json({ message: "Unauthorized internal event." });
+  }
+
+  try {
+    const eventType = String(req.body?.eventType || "");
+    const payload = req.body?.payload || {};
+    const applied = await orderService.handleInventoryEvent(eventType, payload);
+    return res.json({ applied });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Event handling failed." });
+  }
+});
+
 module.exports = router;
