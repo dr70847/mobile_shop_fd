@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { ProductEntity } = require('../domain/entities');
 
 const adminChain = [requireAuth, requireAdmin];
 const apiVersionPath = "/api/v1/products";
@@ -21,20 +22,25 @@ function withLinks(req, product) {
 }
 
 router.post('/', ...adminChain, (req, res) => {
-    const name = String(req.body?.name || '').trim();
-    const description = String(req.body?.description || '').trim();
-    const price = Number(req.body?.price);
-    const stock = Number.parseInt(String(req.body?.stock ?? '0'), 10);
-
-    if (!name) {
-        return res.status(400).json({ message: 'Product name is required.' });
-    }
-    if (!Number.isFinite(price) || price < 0) {
-        return res.status(400).json({ message: 'Valid price is required.' });
+    const entity = new ProductEntity({
+        name: req.body?.name,
+        description: req.body?.description,
+        price: req.body?.price,
+        stock: req.body?.stock,
+    });
+    try {
+        entity.validatePricing();
+    } catch (validationErr) {
+        return res.status(400).json({ message: validationErr.message });
     }
 
     Product.create(
-        { name, description, price, stock: Number.isFinite(stock) ? Math.max(0, stock) : 0 },
+        {
+            name: entity.name,
+            description: entity.description,
+            price: entity.price,
+            stock: entity.stock,
+        },
         (err, result) => {
             if (err) {
                 console.error('products POST:', err.code || err.message);
@@ -55,21 +61,27 @@ router.put('/:id', ...adminChain, (req, res) => {
     if (!Number.isFinite(id) || id <= 0) {
         return res.status(400).json({ message: 'Invalid product id.' });
     }
-    const name = String(req.body?.name || '').trim();
-    const description = String(req.body?.description || '').trim();
-    const price = Number(req.body?.price);
-    const stock = Number.parseInt(String(req.body?.stock ?? '0'), 10);
-
-    if (!name) {
-        return res.status(400).json({ message: 'Product name is required.' });
-    }
-    if (!Number.isFinite(price) || price < 0) {
-        return res.status(400).json({ message: 'Valid price is required.' });
+    const entity = new ProductEntity({
+        id,
+        name: req.body?.name,
+        description: req.body?.description,
+        price: req.body?.price,
+        stock: req.body?.stock,
+    });
+    try {
+        entity.validatePricing();
+    } catch (validationErr) {
+        return res.status(400).json({ message: validationErr.message });
     }
 
     Product.update(
         id,
-        { name, description, price, stock: Number.isFinite(stock) ? Math.max(0, stock) : 0 },
+        {
+            name: entity.name,
+            description: entity.description,
+            price: entity.price,
+            stock: entity.stock,
+        },
         (err, result) => {
             if (err) {
                 console.error('products PUT:', err.code || err.message);

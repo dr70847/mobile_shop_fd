@@ -3,6 +3,7 @@ const router = express.Router();
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { requireAuth } = require('../middleware/auth');
+const { OrderEntity, OrderItemEntity } = require('../domain/entities');
 const apiVersionPath = "/api/v1/orders";
 
 function rootUrl(req) {
@@ -42,10 +43,6 @@ router.get('/my', requireAuth, (req, res) => {
 
 router.post('/checkout', requireAuth, (req, res) => {
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
-    if (items.length === 0) {
-        return res.status(400).json({ message: 'Cart is empty.' });
-    }
-
     const cleaned = items
         .map((it) => ({
             product_id: Number(it.product_id),
@@ -53,8 +50,21 @@ router.post('/checkout', requireAuth, (req, res) => {
         }))
         .filter((it) => Number.isFinite(it.product_id) && it.product_id > 0 && Number.isFinite(it.quantity) && it.quantity > 0);
 
-    if (cleaned.length === 0) {
-        return res.status(400).json({ message: 'Invalid cart items.' });
+    let checkoutOrder;
+    try {
+        checkoutOrder = new OrderEntity({
+            userId: req.user.id,
+            status: 'NEW',
+            shippingAddress: req.body?.shippingAddress || null,
+            items: cleaned.map((it) => new OrderItemEntity({
+                product_id: it.product_id,
+                quantity: it.quantity,
+                unit_price: 0,
+            })),
+        });
+        checkoutOrder.validateCheckout();
+    } catch (validationErr) {
+        return res.status(400).json({ message: validationErr.message });
     }
 
     // Load product prices from DB to prevent tampering
@@ -64,14 +74,24 @@ router.post('/checkout', requireAuth, (req, res) => {
 
         const priceById = new Map(rows.map((p) => [p.id, Number(p.price || 0)]));
         const orderItems = [];
-        let totalPrice = 0;
+        const validatedItems = [];
 
         for (const it of cleaned) {
             if (!priceById.has(it.product_id)) {
                 return res.status(400).json({ message: `Unknown product_id: ${it.product_id}` });
             }
             const unitPrice = priceById.get(it.product_id);
-            totalPrice += unitPrice * it.quantity;
+            const orderItemEntity = new OrderItemEntity({
+                product_id: it.product_id,
+                quantity: it.quantity,
+                unit_price: unitPrice,
+            });
+            try {
+                orderItemEntity.validate();
+            } catch (itemErr) {
+                return res.status(400).json({ message: itemErr.message });
+            }
+            validatedItems.push(orderItemEntity);
             orderItems.push({
                 product_id: it.product_id,
                 quantity: it.quantity,
@@ -79,8 +99,11 @@ router.post('/checkout', requireAuth, (req, res) => {
             });
         }
 
+        checkoutOrder.items = validatedItems;
+        const totalPrice = checkoutOrder.totalAmount();
+
         Order.createWithItems(
-            { userId: req.user.id, totalPrice: Number(totalPrice.toFixed(2)), status: 'NEW', items: orderItems },
+            { userId: req.user.id, totalPrice, status: 'NEW', items: orderItems },
             (err2, result) => {
                 if (err2) return res.status(500).json({ message: 'Database error.' });
                 res.json({
