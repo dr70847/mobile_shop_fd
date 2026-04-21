@@ -10,6 +10,10 @@ const { modules } = require("./modules/registry");
 
 const productRoutes = require("./routes/products");
 const orderRoutes = require("./routes/orders");
+const categoryRoutes = require("./routes/categories");
+const reviewRoutes = require("./routes/reviews");
+const paymentRoutes = require("./routes/payments");
+const shipmentRoutes = require("./routes/shipments");
 
 const app = express();
 app.use(cors());
@@ -45,6 +49,10 @@ app.get("/docs/modules/:moduleName", (req, res) => {
 app.use("/api", apiLimiter);
 app.use("/api/v1/products", cacheMiddleware(45), productRoutes);
 app.use("/api/v1/orders", orderRoutes);
+app.use("/api/v1/categories", categoryRoutes);
+app.use("/api/v1/reviews", reviewRoutes);
+app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/shipments", shipmentRoutes);
 
 for (const mod of modules) {
   app.use(mod.basePath, mod.router);
@@ -56,5 +64,9 @@ for (const mod of modules) {
 // Backward-compatible non-versioned endpoints
 app.use("/products", cacheMiddleware(45), productRoutes);
 app.use("/orders", orderRoutes);
+app.use("/categories", categoryRoutes);
+app.use("/reviews", reviewRoutes);
+app.use("/payments", paymentRoutes);
+app.use("/shipments", shipmentRoutes);
 
 module.exports = app;
