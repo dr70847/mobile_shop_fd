@@ -2,6 +2,7 @@ const request = require("supertest");
 const jwt = require("jsonwebtoken");
 
 process.env.JWT_SECRET = "test-secret";
+process.env.ACCESS_TOKEN_TTL = "15m";
 
 jest.mock("bcryptjs", () => ({
   compare: jest.fn(async () => true),
@@ -24,6 +25,14 @@ jest.mock("../models/User", () => ({
   disableTwoFactor: jest.fn(),
 }));
 
+jest.mock("../models/RefreshToken", () => ({
+  sha256Hex: jest.fn((val) => `hash:${val}`),
+  create: jest.fn((_payload, cb) => cb(null, { insertId: 1 })),
+  findValidByHash: jest.fn(),
+  revokeByHash: jest.fn((_hash, cb) => cb(null, { affectedRows: 1 })),
+  revokeAllForUser: jest.fn((_userId, cb) => cb(null, { affectedRows: 1 })),
+}));
+
 jest.mock("../models/Product", () => ({
   getAll: jest.fn(),
   getById: jest.fn(),
@@ -40,6 +49,7 @@ jest.mock("../models/Order", () => ({
 }));
 
 const User = require("../models/User");
+const RefreshToken = require("../models/RefreshToken");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const { verifySync } = require("otplib");
@@ -61,6 +71,8 @@ describe("API v1 Auth", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
+    expect(res.body.refreshToken).toBeDefined();
+    expect(res.body.expiresIn).toBe(15 * 60);
     expect(res.body._links).toBeDefined();
   });
 
@@ -75,7 +87,9 @@ describe("API v1 Auth", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.access_token).toBeDefined();
+    expect(res.body.refresh_token).toBeDefined();
     expect(res.body.token_type).toBe("Bearer");
+    expect(res.body.expires_in).toBe(15 * 60);
   });
 
   test("POST /api/v1/auth/login returns 2FA challenge when enabled", async () => {
@@ -131,11 +145,58 @@ describe("API v1 Auth", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
+    expect(res.body.refreshToken).toBeDefined();
     expect(verifySync).toHaveBeenCalledWith({
       secret: "TESTSECRET",
       token: "123456",
       epochTolerance: 30,
     });
+  });
+
+  test("POST /api/v1/auth/refresh rotates refresh token", async () => {
+    RefreshToken.findValidByHash.mockImplementation((_hash, cb) =>
+      cb(null, [{ id: 10, user_id: 3, token_hash: "hash:old", expires_at: new Date(Date.now() + 100000), revoked_at: null }])
+    );
+    User.findById.mockImplementation((_id, cb) =>
+      cb(null, [{ id: 3, NAME: "Nora", email: "nora@mail.com", is_admin: 0, created_at: new Date(), two_factor_enabled: 0 }])
+    );
+
+    const res = await request(app)
+      .post("/api/v1/auth/refresh")
+      .send({ refreshToken: "old-refresh" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.accessToken).toBeDefined();
+    expect(res.body.refreshToken).toBeDefined();
+    expect(res.body.expiresIn).toBe(15 * 60);
+  });
+
+  test("POST /api/v1/auth/oauth/token supports refresh_token grant", async () => {
+    RefreshToken.findValidByHash.mockImplementation((_hash, cb) =>
+      cb(null, [{ id: 11, user_id: 6, token_hash: "hash:rt", expires_at: new Date(Date.now() + 100000), revoked_at: null }])
+    );
+    User.findById.mockImplementation((_id, cb) =>
+      cb(null, [{ id: 6, NAME: "Arta", email: "arta@mail.com", is_admin: 1, created_at: new Date(), two_factor_enabled: 0 }])
+    );
+
+    const res = await request(app)
+      .post("/api/v1/auth/oauth/token")
+      .send({ grant_type: "refresh_token", refresh_token: "rt-123" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.access_token).toBeDefined();
+    expect(res.body.refresh_token).toBeDefined();
+    expect(res.body.token_type).toBe("Bearer");
+    expect(res.body.expires_in).toBe(15 * 60);
+  });
+
+  test("POST /api/v1/auth/logout revokes refresh token", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/logout")
+      .send({ refreshToken: "to-revoke" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Logged out.");
   });
 });
 

@@ -107,7 +107,27 @@ function runSchemaBootstrap() {
                     console.error('Failed to ensure products table:', err4.code || err4.message);
                     return;
                   }
-                  ensureDefaultAdminUser();
+                  pool.query(
+                    `CREATE TABLE IF NOT EXISTS refresh_tokens (
+                      id INT AUTO_INCREMENT PRIMARY KEY,
+                      user_id INT NOT NULL,
+                      token_hash CHAR(64) NOT NULL,
+                      expires_at DATETIME NOT NULL,
+                      revoked_at DATETIME NULL,
+                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      UNIQUE KEY uniq_token_hash (token_hash),
+                      INDEX idx_user_id (user_id),
+                      INDEX idx_expires_at (expires_at),
+                      INDEX idx_revoked_at (revoked_at)
+                    )`,
+                    (err5) => {
+                      if (err5) {
+                        console.error('Failed to ensure refresh_tokens table:', err5.code || err5.message);
+                        return;
+                      }
+                      ensureDefaultAdminUser();
+                    }
+                  );
                 }
               );
             }
@@ -118,13 +138,16 @@ function runSchemaBootstrap() {
   );
 }
 
-pool.query('SELECT 1', (err) => {
-  if (err) {
-    console.error('MySQL not ready:', err.code || err.message);
-    return;
-  }
-  console.log('Connected to MySQL database!');
-  runSchemaBootstrap();
-});
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID != null;
+if (!isTestEnv) {
+  pool.query('SELECT 1', (err) => {
+    if (err) {
+      console.error('MySQL not ready:', err.code || err.message);
+      return;
+    }
+    console.log('Connected to MySQL database!');
+    runSchemaBootstrap();
+  });
+}
 
 module.exports = pool;

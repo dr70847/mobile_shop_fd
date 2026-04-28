@@ -1,12 +1,26 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { generateSecret, generateURI, verifySync } = require("otplib");
 const User = require("../models/User");
+const RefreshToken = require("../models/RefreshToken");
 const { requireAuth } = require("../middleware/auth");
 const { normalizeUserForRole } = require("../domain/entities");
 
 const router = express.Router();
+
+function parseDurationToSeconds(value, fallbackSeconds) {
+  const raw = String(value || "").trim();
+  if (!raw) return fallbackSeconds;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const m = raw.match(/^(\d+)\s*([smhd])$/i);
+  if (!m) return fallbackSeconds;
+  const n = Number(m[1]);
+  const unit = m[2].toLowerCase();
+  const mult = unit === "s" ? 1 : unit === "m" ? 60 : unit === "h" ? 3600 : 86400;
+  return n * mult;
+}
 
 function baseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
@@ -28,30 +42,36 @@ function authLinks(req) {
 }
 
 function baseUserPayload(user) {
+  const isAdmin = Boolean(user.is_admin);
+  const roles = Array.isArray(user.roles) && user.roles.length > 0
+    ? user.roles
+    : isAdmin
+      ? ["ROLE_ADMIN", "ROLE_USER"]
+      : ["ROLE_USER"];
   return {
     id: user.id,
     email: user.email,
     name: user.name || "",
     is_admin: Boolean(user.is_admin),
+    roles,
   };
 }
 
 function normalizeUserRow(userRow) {
+  const isAdmin = Boolean(userRow.is_admin);
   return {
     id: userRow.id,
     name: userRow.name || userRow.NAME || "",
     email: userRow.email,
-    is_admin: Boolean(userRow.is_admin),
+    is_admin: isAdmin,
+    roles: isAdmin ? ["ROLE_ADMIN", "ROLE_USER"] : ["ROLE_USER"],
     two_factor_enabled: Boolean(userRow.two_factor_enabled),
   };
 }
 
-function signToken(user) {
-  return jwt.sign(
-    baseUserPayload(user),
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+function signAccessToken(user) {
+  const ttl = process.env.ACCESS_TOKEN_TTL || "15m";
+  return jwt.sign(baseUserPayload(user), process.env.JWT_SECRET, { expiresIn: ttl });
 }
 
 function signTwoFactorChallenge(user) {
@@ -63,6 +83,33 @@ function signTwoFactorChallenge(user) {
     process.env.JWT_SECRET,
     { expiresIn: "10m" }
   );
+}
+
+function generateRefreshTokenValue() {
+  // 48 bytes => 64 chars base64url-ish, good entropy for bearer token
+  return crypto
+    .randomBytes(48)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function issueTokens(user, cb) {
+  const accessToken = signAccessToken(user);
+  const refreshToken = generateRefreshTokenValue();
+  const refreshTtlDays = process.env.REFRESH_TOKEN_TTL_DAYS ? Number(process.env.REFRESH_TOKEN_TTL_DAYS) : 30;
+  const expiresAt = new Date(Date.now() + (Number.isFinite(refreshTtlDays) ? refreshTtlDays : 30) * 24 * 60 * 60 * 1000);
+  const tokenHash = RefreshToken.sha256Hex(refreshToken);
+
+  RefreshToken.create({ userId: user.id, tokenHash, expiresAt }, (err) => {
+    if (err) {
+      console.error("auth/tokens RefreshToken.create:", err.code || err.message);
+      return cb(new Error("Failed to create session."));
+    }
+    const accessTtlSeconds = parseDurationToSeconds(process.env.ACCESS_TOKEN_TTL || "15m", 15 * 60);
+    return cb(null, { accessToken, refreshToken, accessTtlSeconds });
+  });
 }
 
 function verifyTotpToken(code, secret) {
@@ -115,17 +162,28 @@ function authenticateUser(req, res, credentials, responseShape = "jwt") {
       });
     }
 
-    const token = signToken(user);
-    if (responseShape === "oauth") {
+    return issueTokens(user, (issueErr, tokens) => {
+      if (issueErr) return res.status(500).json({ message: issueErr.message });
+      if (responseShape === "oauth") {
+        return res.json({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          token_type: "Bearer",
+          expires_in: tokens.accessTtlSeconds,
+          user,
+          _links: authLinks(req),
+        });
+      }
+      // Backward-compatible: keep "token" as alias of access token
       return res.json({
-        access_token: token,
-        token_type: "Bearer",
-        expires_in: 7 * 24 * 60 * 60,
+        token: tokens.accessToken,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.accessTtlSeconds,
         user,
         _links: authLinks(req),
       });
-    }
-    return res.json({ token, user, _links: authLinks(req) });
+    });
   });
 }
 
@@ -161,9 +219,18 @@ router.post("/signup", (req, res) => {
           console.error("auth/signup create:", err2.code || err2.message);
           return res.status(500).json({ message: "Database error." });
         }
-        const user = { id: result.insertId, name, email, is_admin: false };
-        const token = signToken(user);
-        return res.json({ token, user, _links: authLinks(req) });
+        const user = { id: result.insertId, name, email, is_admin: false, roles: ["ROLE_USER"] };
+        return issueTokens(user, (issueErr, tokens) => {
+          if (issueErr) return res.status(500).json({ message: issueErr.message });
+          return res.json({
+            token: tokens.accessToken,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.accessTtlSeconds,
+            user,
+            _links: authLinks(req),
+          });
+        });
       });
     } catch {
       return res.status(500).json({ message: "Failed to create account." });
@@ -177,19 +244,60 @@ router.post("/login", (req, res) => {
 
 router.post("/oauth/token", (req, res) => {
   const grantType = String(req.body?.grant_type || "").trim();
-  if (grantType !== "password") {
-    return res.status(400).json({ message: "Unsupported grant_type. Use password." });
+  if (grantType === "password") {
+    return authenticateUser(
+      req,
+      res,
+      {
+        email: req.body?.username,
+        password: req.body?.password,
+      },
+      "oauth"
+    );
   }
 
-  return authenticateUser(
-    req,
-    res,
-    {
-    email: req.body?.username,
-    password: req.body?.password,
-    },
-    "oauth"
-  );
+  if (grantType === "refresh_token") {
+    const refreshToken = String(req.body?.refresh_token || "");
+    if (!refreshToken) {
+      return res.status(400).json({ message: "refresh_token is required." });
+    }
+    const tokenHash = RefreshToken.sha256Hex(refreshToken);
+    return RefreshToken.findValidByHash(tokenHash, (err, rows) => {
+      if (err) {
+        console.error("auth/oauth refresh findValidByHash:", err.code || err.message);
+        return res.status(500).json({ message: "Database error." });
+      }
+      const row = rows && rows[0];
+      if (!row) return res.status(401).json({ message: "Invalid or expired refresh token." });
+
+      return User.findById(row.user_id, (err2, userRows) => {
+        if (err2) return res.status(500).json({ message: "Database error." });
+        const userRow = userRows && userRows[0];
+        if (!userRow) return res.status(401).json({ message: "Invalid refresh token." });
+        const user = normalizeUserRow(userRow);
+
+        return RefreshToken.revokeByHash(tokenHash, (revokeErr) => {
+          if (revokeErr) {
+            console.error("auth/oauth refresh revoke:", revokeErr.code || revokeErr.message);
+            return res.status(500).json({ message: "Database error." });
+          }
+          return issueTokens(user, (issueErr, tokens) => {
+            if (issueErr) return res.status(500).json({ message: issueErr.message });
+            return res.json({
+              access_token: tokens.accessToken,
+              refresh_token: tokens.refreshToken,
+              token_type: "Bearer",
+              expires_in: tokens.accessTtlSeconds,
+              user,
+              _links: authLinks(req),
+            });
+          });
+        });
+      });
+    });
+  }
+
+  return res.status(400).json({ message: "Unsupported grant_type. Use password or refresh_token." });
 });
 
 router.post("/2fa/verify-login", (req, res) => {
@@ -225,8 +333,81 @@ router.post("/2fa/verify-login", (req, res) => {
     }
 
     const user = normalizeUserRow(userRow);
-    const token = signToken(user);
-    return res.json({ token, user, _links: authLinks(req) });
+    return issueTokens(user, (issueErr, tokens) => {
+      if (issueErr) return res.status(500).json({ message: issueErr.message });
+      return res.json({
+        token: tokens.accessToken,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.accessTtlSeconds,
+        user,
+        _links: authLinks(req),
+      });
+    });
+  });
+});
+
+router.post("/refresh", (req, res) => {
+  const refreshToken = String(req.body?.refreshToken || req.body?.refresh_token || "");
+  if (!refreshToken) {
+    return res.status(400).json({ message: "refreshToken is required." });
+  }
+  const tokenHash = RefreshToken.sha256Hex(refreshToken);
+  return RefreshToken.findValidByHash(tokenHash, (err, rows) => {
+    if (err) {
+      console.error("auth/refresh findValidByHash:", err.code || err.message);
+      return res.status(500).json({ message: "Database error." });
+    }
+    const row = rows && rows[0];
+    if (!row) return res.status(401).json({ message: "Invalid or expired refresh token." });
+
+    return User.findById(row.user_id, (err2, userRows) => {
+      if (err2) return res.status(500).json({ message: "Database error." });
+      const userRow = userRows && userRows[0];
+      if (!userRow) return res.status(401).json({ message: "Invalid refresh token." });
+      const user = normalizeUserRow(userRow);
+
+      return RefreshToken.revokeByHash(tokenHash, (revokeErr) => {
+        if (revokeErr) {
+          console.error("auth/refresh revoke:", revokeErr.code || revokeErr.message);
+          return res.status(500).json({ message: "Database error." });
+        }
+        return issueTokens(user, (issueErr, tokens) => {
+          if (issueErr) return res.status(500).json({ message: issueErr.message });
+          return res.json({
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.accessTtlSeconds,
+            _links: authLinks(req),
+          });
+        });
+      });
+    });
+  });
+});
+
+router.post("/logout", (req, res) => {
+  const refreshToken = String(req.body?.refreshToken || req.body?.refresh_token || "");
+  if (!refreshToken) {
+    return res.status(400).json({ message: "refreshToken is required." });
+  }
+  const tokenHash = RefreshToken.sha256Hex(refreshToken);
+  return RefreshToken.revokeByHash(tokenHash, (err) => {
+    if (err) {
+      console.error("auth/logout revokeByHash:", err.code || err.message);
+      return res.status(500).json({ message: "Database error." });
+    }
+    return res.json({ message: "Logged out." });
+  });
+});
+
+router.post("/logout/all", requireAuth, (req, res) => {
+  return RefreshToken.revokeAllForUser(req.user.id, (err) => {
+    if (err) {
+      console.error("auth/logout/all revokeAllForUser:", err.code || err.message);
+      return res.status(500).json({ message: "Database error." });
+    }
+    return res.json({ message: "Logged out from all sessions." });
   });
 });
 
