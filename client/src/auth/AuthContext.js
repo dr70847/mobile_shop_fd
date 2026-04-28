@@ -8,7 +8,9 @@ export const AuthContext = createContext({
   user: null,
   loading: true,
   login: async () => {},
+  verifyTwoFactorLogin: async () => {},
   signup: async () => {},
+  refreshUser: async () => {},
   logout: () => {},
 });
 
@@ -16,6 +18,27 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  async function loadCurrentUser(activeToken = token) {
+    if (!activeToken) {
+      setUser(null);
+      return null;
+    }
+    const res = await axios.get("/auth/me", {
+      headers: {
+        Authorization: `Bearer ${activeToken}`,
+      },
+    });
+    const nextUser = res.data?.user || null;
+    setUser(nextUser);
+    return nextUser;
+  }
+
+  function persistSession(nextToken, nextUser) {
+    setToken(nextToken);
+    localStorage.setItem(TOKEN_KEY, nextToken);
+    setUser(nextUser || null);
+  }
 
   useEffect(() => {
     const id = axios.interceptors.request.use((config) => {
@@ -62,17 +85,27 @@ export function AuthProvider({ children }) {
       loading,
       login: async ({ email, password }) => {
         const res = await axios.post("/auth/login", { email, password });
+        if (res.data?.requiresTwoFactor) {
+          return res.data;
+        }
         const nextToken = res.data?.token;
-        setToken(nextToken);
-        localStorage.setItem(TOKEN_KEY, nextToken);
-        setUser(res.data?.user || null);
+        persistSession(nextToken, res.data?.user || null);
+        return res.data;
+      },
+      verifyTwoFactorLogin: async ({ twoFactorToken, code }) => {
+        const res = await axios.post("/auth/2fa/verify-login", { twoFactorToken, code });
+        const nextToken = res.data?.token;
+        persistSession(nextToken, res.data?.user || null);
+        return res.data;
       },
       signup: async ({ name, email, password }) => {
         const res = await axios.post("/auth/signup", { name, email, password });
         const nextToken = res.data?.token;
-        setToken(nextToken);
-        localStorage.setItem(TOKEN_KEY, nextToken);
-        setUser(res.data?.user || null);
+        persistSession(nextToken, res.data?.user || null);
+        return res.data;
+      },
+      refreshUser: async () => {
+        return loadCurrentUser();
       },
       logout: () => {
         setToken(null);
