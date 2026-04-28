@@ -5,10 +5,10 @@ function isBadFieldError(err) {
 }
 
 const User = {
-  create: ({ name, email, password_hash }, callback) => {
+  create: ({ name, email, password_hash, isActive = 1 }, callback) => {
     db.query(
-      "INSERT INTO users (NAME, email, PASSWORD) VALUES (?, ?, ?)",
-      [name, email, password_hash],
+      "INSERT INTO users (NAME, email, PASSWORD, is_active) VALUES (?, ?, ?, ?)",
+      [name, email, password_hash, isActive ? 1 : 0],
       callback
     );
   },
@@ -19,7 +19,7 @@ const User = {
 
   findById: (id, callback) => {
     db.query(
-      "SELECT id, NAME AS name, email, is_admin, created_at, two_factor_enabled FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, NAME AS name, email, is_admin, is_active, email_verified_at, created_at, two_factor_enabled FROM users WHERE id = ? LIMIT 1",
       [id],
       (err, rows) => {
         if (!err) return callback(null, rows);
@@ -34,6 +34,8 @@ const User = {
             const row = rows2 && rows2[0];
             if (!row) return callback(null, rows2);
             row.two_factor_enabled = 0;
+            row.is_active = 1;
+            row.email_verified_at = null;
             return callback(null, [row]);
           }
         );
@@ -43,7 +45,7 @@ const User = {
 
   findByIdWithSecrets: (id, callback) => {
     db.query(
-      `SELECT id, NAME, email, is_admin, created_at, two_factor_enabled, two_factor_secret, two_factor_temp_secret
+      `SELECT id, NAME, email, PASSWORD, is_admin, is_active, email_verified_at, created_at, two_factor_enabled, two_factor_secret, two_factor_temp_secret
        FROM users
        WHERE id = ? LIMIT 1`,
       [id],
@@ -53,7 +55,7 @@ const User = {
 
         // Backward-compatible for databases not yet migrated with 2FA columns
         return db.query(
-          "SELECT id, NAME, email, is_admin, created_at FROM users WHERE id = ? LIMIT 1",
+          "SELECT id, NAME, email, PASSWORD, is_admin, created_at FROM users WHERE id = ? LIMIT 1",
           [id],
           (err2, rows2) => {
             if (err2) return callback(err2);
@@ -62,6 +64,8 @@ const User = {
             row.two_factor_enabled = 0;
             row.two_factor_secret = null;
             row.two_factor_temp_secret = null;
+            row.is_active = 1;
+            row.email_verified_at = null;
             return callback(null, [row]);
           }
         );
@@ -71,13 +75,33 @@ const User = {
 
   getAll: (callback) => {
     db.query(
-      "SELECT id, NAME AS name, email, is_admin, created_at FROM users ORDER BY created_at DESC",
+      "SELECT id, NAME AS name, email, is_admin, is_active, email_verified_at, created_at FROM users ORDER BY created_at DESC",
       callback
     );
   },
 
   setAdminRole: (id, isAdmin, callback) => {
     db.query("UPDATE users SET is_admin = ? WHERE id = ?", [isAdmin ? 1 : 0, id], callback);
+  },
+
+  updateProfile: ({ id, name, email }, callback) => {
+    db.query("UPDATE users SET NAME = ?, email = ? WHERE id = ?", [name, email, id], callback);
+  },
+
+  updatePasswordHash: ({ id, passwordHash }, callback) => {
+    db.query("UPDATE users SET PASSWORD = ? WHERE id = ?", [passwordHash, id], callback);
+  },
+
+  setActive: ({ id, isActive }, callback) => {
+    db.query("UPDATE users SET is_active = ? WHERE id = ?", [isActive ? 1 : 0, id], callback);
+  },
+
+  markEmailVerifiedAndActivate: ({ id }, callback) => {
+    db.query("UPDATE users SET is_active = 1, email_verified_at = NOW() WHERE id = ?", [id], callback);
+  },
+
+  deleteById: (id, callback) => {
+    db.query("DELETE FROM users WHERE id = ?", [id], callback);
   },
 
   saveTwoFactorSetup: (id, secret, callback) => {

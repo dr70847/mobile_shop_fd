@@ -5,7 +5,10 @@ const crypto = require("crypto");
 const { generateSecret, generateURI, verifySync } = require("otplib");
 const User = require("../models/User");
 const RefreshToken = require("../models/RefreshToken");
+const UserActionToken = require("../models/UserActionToken");
+const { sendEmail } = require("../services/emailService");
 const { requireAuth } = require("../middleware/auth");
+const { recordAudit } = require("../middleware/audit");
 const { normalizeUserForRole } = require("../domain/entities");
 
 const router = express.Router();
@@ -26,6 +29,10 @@ function baseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
 
+function frontendBaseUrl() {
+  return String(process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/+$/, "");
+}
+
 function authLinks(req) {
   const root = baseUrl(req);
   return {
@@ -38,7 +45,72 @@ function authLinks(req) {
     twoFactorEnable: { href: `${root}${req.baseUrl}/2fa/enable` },
     twoFactorDisable: { href: `${root}${req.baseUrl}/2fa/disable` },
     twoFactorVerifyLogin: { href: `${root}${req.baseUrl}/2fa/verify-login` },
+    activate: { href: `${root}${req.baseUrl}/activate` },
+    requestPasswordReset: { href: `${root}${req.baseUrl}/request-password-reset` },
+    resetPassword: { href: `${root}${req.baseUrl}/reset-password` },
+    changePassword: { href: `${root}${req.baseUrl}/change-password` },
   };
+}
+
+function isUserActive(userRow) {
+  if (userRow && Object.prototype.hasOwnProperty.call(userRow, "is_active")) {
+    return Boolean(userRow.is_active);
+  }
+  return true;
+}
+
+function issueActionToken({ userId, purpose, ttlMinutes }, callback) {
+  const tokenValue = UserActionToken.generateTokenValue();
+  const tokenHash = UserActionToken.hashToken(tokenValue);
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+  UserActionToken.revokeActiveForUserPurpose({ userId, purpose }, () => {
+    UserActionToken.create({ userId, purpose, tokenHash, expiresAt }, (err) => {
+      if (err) return callback(err);
+      return callback(null, tokenValue);
+    });
+  });
+}
+
+async function sendActivationEmail(req, user) {
+  const ttlMinutes = process.env.ACTIVATION_TOKEN_TTL_MINUTES ? Number(process.env.ACTIVATION_TOKEN_TTL_MINUTES) : 60 * 24;
+  return new Promise((resolve, reject) => {
+    issueActionToken({ userId: user.id, purpose: "activation", ttlMinutes }, async (err, tokenValue) => {
+      if (err) return reject(err);
+      const activationUrl = `${baseUrl(req)}${req.baseUrl}/activate?token=${encodeURIComponent(tokenValue)}`;
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Activate your MobileShop account",
+          text: `Welcome ${user.name || ""}! Activate your account: ${activationUrl}`,
+          html: `<p>Welcome ${user.name || ""}!</p><p>Activate your account: <a href="${activationUrl}">${activationUrl}</a></p>`,
+        });
+        return resolve();
+      } catch (mailErr) {
+        return reject(mailErr);
+      }
+    });
+  });
+}
+
+async function sendPasswordResetEmail(req, user) {
+  const ttlMinutes = process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES ? Number(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES) : 60;
+  return new Promise((resolve, reject) => {
+    issueActionToken({ userId: user.id, purpose: "password_reset", ttlMinutes }, async (err, tokenValue) => {
+      if (err) return reject(err);
+      const resetUrl = `${frontendBaseUrl()}/reset-password?token=${encodeURIComponent(tokenValue)}`;
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your MobileShop password",
+          text: `Reset your password using this link: ${resetUrl}`,
+          html: `<p>Reset your password using this link:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+        });
+        return resolve();
+      } catch (mailErr) {
+        return reject(mailErr);
+      }
+    });
+  });
 }
 
 function baseUserPayload(user) {
@@ -142,11 +214,13 @@ function authenticateUser(req, res, credentials, responseShape = "jwt") {
 
     const ok = await bcrypt.compare(password, userRow.PASSWORD || "");
     if (!ok) return res.status(401).json({ message: "Invalid email or password." });
+    if (!isUserActive(userRow)) return res.status(403).json({ message: "Account is not active. Check your email for activation link." });
 
     const user = normalizeUserRow(userRow);
     if (user.two_factor_enabled && userRow.two_factor_secret) {
       const challengeToken = signTwoFactorChallenge(user);
       if (responseShape === "oauth") {
+        recordAudit(req, { action: "AUTH_LOGIN_2FA_CHALLENGE", targetType: "user", targetId: String(user.id) });
         return res.status(202).json({
           requires_two_factor: true,
           two_factor_token: challengeToken,
@@ -164,6 +238,7 @@ function authenticateUser(req, res, credentials, responseShape = "jwt") {
 
     return issueTokens(user, (issueErr, tokens) => {
       if (issueErr) return res.status(500).json({ message: issueErr.message });
+      recordAudit(req, { action: "AUTH_LOGIN", targetType: "user", targetId: String(user.id) });
       if (responseShape === "oauth") {
         return res.json({
           access_token: tokens.accessToken,
@@ -214,22 +289,22 @@ router.post("/signup", (req, res) => {
 
     try {
       const password_hash = await bcrypt.hash(password, 10);
-      User.create({ name, email, password_hash }, (err2, result) => {
+      User.create({ name, email, password_hash, isActive: 0 }, async (err2, result) => {
         if (err2) {
           console.error("auth/signup create:", err2.code || err2.message);
           return res.status(500).json({ message: "Database error." });
         }
-        const user = { id: result.insertId, name, email, is_admin: false, roles: ["ROLE_USER"] };
-        return issueTokens(user, (issueErr, tokens) => {
-          if (issueErr) return res.status(500).json({ message: issueErr.message });
-          return res.json({
-            token: tokens.accessToken,
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            expiresIn: tokens.accessTtlSeconds,
-            user,
-            _links: authLinks(req),
-          });
+        const user = { id: result.insertId, name, email, is_admin: false, is_active: false, roles: ["ROLE_USER"] };
+        try {
+          await sendActivationEmail(req, user);
+        } catch (mailErr) {
+          console.error("auth/signup activation email:", mailErr.message || mailErr);
+        }
+        recordAudit(req, { action: "AUTH_SIGNUP", targetType: "user", targetId: String(user.id), metadata: { email } });
+        return res.status(201).json({
+          message: "Account created. Please activate it from your email before login.",
+          user,
+          _links: authLinks(req),
         });
       });
     } catch {
@@ -335,6 +410,7 @@ router.post("/2fa/verify-login", (req, res) => {
     const user = normalizeUserRow(userRow);
     return issueTokens(user, (issueErr, tokens) => {
       if (issueErr) return res.status(500).json({ message: issueErr.message });
+      recordAudit(req, { action: "AUTH_LOGIN_2FA_VERIFIED", targetType: "user", targetId: String(user.id) });
       return res.json({
         token: tokens.accessToken,
         accessToken: tokens.accessToken,
@@ -397,6 +473,7 @@ router.post("/logout", (req, res) => {
       console.error("auth/logout revokeByHash:", err.code || err.message);
       return res.status(500).json({ message: "Database error." });
     }
+    recordAudit(req, { action: "AUTH_LOGOUT", targetType: "session", targetId: tokenHash.slice(0, 12) });
     return res.json({ message: "Logged out." });
   });
 });
@@ -407,7 +484,86 @@ router.post("/logout/all", requireAuth, (req, res) => {
       console.error("auth/logout/all revokeAllForUser:", err.code || err.message);
       return res.status(500).json({ message: "Database error." });
     }
+    recordAudit(req, { action: "AUTH_LOGOUT_ALL", targetType: "user", targetId: String(req.user.id) });
     return res.json({ message: "Logged out from all sessions." });
+  });
+});
+
+router.get("/activate", (req, res) => {
+  const token = String(req.query?.token || "");
+  if (!token) return res.status(400).json({ message: "Activation token is required." });
+  const tokenHash = UserActionToken.hashToken(token);
+  return UserActionToken.findValidByHashAndPurpose({ tokenHash, purpose: "activation" }, (err, rows) => {
+    if (err) return res.status(500).json({ message: "Database error." });
+    const actionToken = rows && rows[0];
+    if (!actionToken) return res.status(400).json({ message: "Invalid or expired activation token." });
+    return User.markEmailVerifiedAndActivate({ id: actionToken.user_id }, (uErr) => {
+      if (uErr) return res.status(500).json({ message: "Database error." });
+      return UserActionToken.consumeById(actionToken.id, () => {
+        recordAudit(req, { action: "AUTH_ACTIVATE_ACCOUNT", targetType: "user", targetId: String(actionToken.user_id) });
+        return res.json({ message: "Account activated. You can login now." });
+      });
+    });
+  });
+});
+
+router.post("/request-password-reset", (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ message: "Email is required." });
+  return User.findByEmail(email, async (err, rows) => {
+    if (err) return res.status(500).json({ message: "Database error." });
+    const userRow = rows && rows[0];
+    if (userRow) {
+      try {
+        await sendPasswordResetEmail(req, { id: userRow.id, email: userRow.email, name: userRow.NAME });
+        recordAudit(req, { action: "AUTH_PASSWORD_RESET_REQUEST", targetType: "user", targetId: String(userRow.id) });
+      } catch (mailErr) {
+        console.error("auth/request-password-reset email:", mailErr.message || mailErr);
+      }
+    }
+    return res.json({ message: "If this email exists, a reset link has been sent." });
+  });
+});
+
+router.post("/reset-password", async (req, res) => {
+  const token = String(req.body?.token || "");
+  const newPassword = String(req.body?.newPassword || "");
+  if (!token || !newPassword) return res.status(400).json({ message: "Token and newPassword are required." });
+  if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters." });
+  const tokenHash = UserActionToken.hashToken(token);
+  return UserActionToken.findValidByHashAndPurpose({ tokenHash, purpose: "password_reset" }, async (err, rows) => {
+    if (err) return res.status(500).json({ message: "Database error." });
+    const actionToken = rows && rows[0];
+    if (!actionToken) return res.status(400).json({ message: "Invalid or expired reset token." });
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    return User.updatePasswordHash({ id: actionToken.user_id, passwordHash }, (uErr) => {
+      if (uErr) return res.status(500).json({ message: "Database error." });
+      return UserActionToken.consumeById(actionToken.id, () => {
+        recordAudit(req, { action: "AUTH_PASSWORD_RESET_COMPLETE", targetType: "user", targetId: String(actionToken.user_id) });
+        return res.json({ message: "Password reset successful." });
+      });
+    });
+  });
+});
+
+router.post("/change-password", requireAuth, (req, res) => {
+  const currentPassword = String(req.body?.currentPassword || "");
+  const newPassword = String(req.body?.newPassword || "");
+  if (!currentPassword || !newPassword) return res.status(400).json({ message: "currentPassword and newPassword are required." });
+  if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters." });
+
+  return User.findByIdWithSecrets(req.user.id, async (err, rows) => {
+    if (err) return res.status(500).json({ message: "Database error." });
+    const userRow = rows && rows[0];
+    if (!userRow) return res.status(404).json({ message: "User not found." });
+    const matches = await bcrypt.compare(currentPassword, userRow.PASSWORD || "");
+    if (!matches) return res.status(401).json({ message: "Current password is incorrect." });
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    return User.updatePasswordHash({ id: req.user.id, passwordHash }, (uErr) => {
+      if (uErr) return res.status(500).json({ message: "Database error." });
+      recordAudit(req, { action: "AUTH_PASSWORD_CHANGE", targetType: "user", targetId: String(req.user.id) });
+      return res.json({ message: "Password changed successfully." });
+    });
   });
 });
 

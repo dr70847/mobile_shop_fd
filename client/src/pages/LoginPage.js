@@ -129,6 +129,9 @@ export default function LoginPage() {
                   errorText={errors.password}
                   autoComplete="current-password"
                 />
+                <Typography variant="body2" sx={{ mt: -1 }}>
+                  <Link to="/forgot-password">Forgot password?</Link>
+                </Typography>
               </>
             )}
             <Button variant="contained" type="submit" disabled={submitting}>

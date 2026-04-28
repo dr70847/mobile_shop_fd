@@ -16,6 +16,10 @@ module.exports = {
   publicApi: [
     "POST /api/v1/auth/signup",
     "POST /api/v1/auth/login",
+    "GET /api/v1/auth/activate",
+    "POST /api/v1/auth/change-password",
+    "POST /api/v1/auth/request-password-reset",
+    "POST /api/v1/auth/reset-password",
     "POST /api/v1/auth/oauth/token",
     "GET /api/v1/auth/me",
   ],

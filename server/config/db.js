@@ -65,6 +65,11 @@ function runSchemaBootstrap() {
     email VARCHAR(255) NOT NULL UNIQUE,
     PASSWORD VARCHAR(255) NOT NULL,
     is_admin TINYINT(1) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    email_verified_at DATETIME NULL,
+    two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    two_factor_secret VARCHAR(255) NULL,
+    two_factor_temp_secret VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
     (err) => {
@@ -78,6 +83,36 @@ function runSchemaBootstrap() {
           if (err2 && err2.code !== 'ER_DUP_FIELDNAME') {
             console.error('Failed to add is_admin to users:', err2.code || err2.message);
           }
+          pool.query(
+            'ALTER TABLE users ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1',
+            (err2b) => {
+              if (err2b && err2b.code !== 'ER_DUP_FIELDNAME') {
+                console.error('Failed to add is_active to users:', err2b.code || err2b.message);
+              }
+              pool.query(
+                'ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL',
+                (err2c) => {
+                  if (err2c && err2c.code !== 'ER_DUP_FIELDNAME') {
+                    console.error('Failed to add email_verified_at to users:', err2c.code || err2c.message);
+                  }
+                  pool.query(
+                    'ALTER TABLE users ADD COLUMN two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0',
+                    (err2d) => {
+                      if (err2d && err2d.code !== 'ER_DUP_FIELDNAME') {
+                        console.error('Failed to add two_factor_enabled to users:', err2d.code || err2d.message);
+                      }
+                      pool.query(
+                        'ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(255) NULL',
+                        (err2e) => {
+                          if (err2e && err2e.code !== 'ER_DUP_FIELDNAME') {
+                            console.error('Failed to add two_factor_secret to users:', err2e.code || err2e.message);
+                          }
+                          pool.query(
+                            'ALTER TABLE users ADD COLUMN two_factor_temp_secret VARCHAR(255) NULL',
+                            (err2f) => {
+                              if (err2f && err2f.code !== 'ER_DUP_FIELDNAME') {
+                                console.error('Failed to add two_factor_temp_secret to users:', err2f.code || err2f.message);
+                              }
           pool.query(
             `CREATE TABLE IF NOT EXISTS order_items (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -125,7 +160,60 @@ function runSchemaBootstrap() {
                         console.error('Failed to ensure refresh_tokens table:', err5.code || err5.message);
                         return;
                       }
-                      ensureDefaultAdminUser();
+                      pool.query(
+                        `CREATE TABLE IF NOT EXISTS user_action_tokens (
+                          id INT AUTO_INCREMENT PRIMARY KEY,
+                          user_id INT NOT NULL,
+                          purpose ENUM('activation', 'password_reset') NOT NULL,
+                          token_hash CHAR(64) NOT NULL,
+                          expires_at DATETIME NOT NULL,
+                          consumed_at DATETIME NULL,
+                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          UNIQUE KEY uniq_user_action_token_hash (token_hash),
+                          INDEX idx_uat_user (user_id),
+                          INDEX idx_uat_purpose (purpose),
+                          INDEX idx_uat_expires (expires_at)
+                        )`,
+                        (err6) => {
+                          if (err6) {
+                            console.error('Failed to ensure user_action_tokens table:', err6.code || err6.message);
+                            return;
+                          }
+                          pool.query(
+                            `CREATE TABLE IF NOT EXISTS audit_logs (
+                              id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                              actor_user_id INT NULL,
+                              action VARCHAR(120) NOT NULL,
+                              target_type VARCHAR(80) NOT NULL,
+                              target_id VARCHAR(80) NULL,
+                              metadata_json JSON NULL,
+                              ip_address VARCHAR(64) NULL,
+                              user_agent VARCHAR(255) NULL,
+                              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                              INDEX idx_audit_created (created_at),
+                              INDEX idx_audit_actor (actor_user_id),
+                              INDEX idx_audit_action (action)
+                            )`,
+                            (err7) => {
+                              if (err7) {
+                                console.error('Failed to ensure audit_logs table:', err7.code || err7.message);
+                                return;
+                              }
+                              ensureDefaultAdminUser();
+                            }
+                          );
+                        }
+                      );
+                    }
+                  );
+                }
+              );
+            }
+          );
+                            }
+                          );
+                        }
+                      );
                     }
                   );
                 }

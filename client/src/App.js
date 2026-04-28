@@ -7,6 +7,8 @@ import RequireRole from "./routes/RequireRole";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const SignupPage = lazy(() => import("./pages/SignupPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const OrdersPage = lazy(() => import("./pages/OrdersPage"));
@@ -23,6 +25,8 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/products/:id" element={<ProductDetailsPage />} />

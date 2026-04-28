@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL UNIQUE,
   PASSWORD VARCHAR(255) NOT NULL,
   is_admin TINYINT(1) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  email_verified_at DATETIME NULL,
   two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0,
   two_factor_secret VARCHAR(255) NULL,
   two_factor_temp_secret VARCHAR(255) NULL,
@@ -110,6 +112,37 @@ CREATE TABLE IF NOT EXISTS shipments (
   CONSTRAINT fk_shipments_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS user_action_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  purpose ENUM('activation', 'password_reset') NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_user_action_token_hash (token_hash),
+  INDEX idx_user_action_tokens_user (user_id),
+  INDEX idx_user_action_tokens_purpose (purpose),
+  INDEX idx_user_action_tokens_expires (expires_at),
+  CONSTRAINT fk_user_action_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  actor_user_id INT NULL,
+  action VARCHAR(120) NOT NULL,
+  target_type VARCHAR(80) NOT NULL,
+  target_id VARCHAR(80) NULL,
+  metadata_json JSON NULL,
+  ip_address VARCHAR(64) NULL,
+  user_agent VARCHAR(255) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_audit_created (created_at),
+  INDEX idx_audit_actor (actor_user_id),
+  INDEX idx_audit_action (action),
+  CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Backward-compatible migrations for existing databases
 ALTER TABLE products ADD COLUMN IF NOT EXISTS product_type ENUM('PHYSICAL', 'DIGITAL') NOT NULL DEFAULT 'PHYSICAL';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS sku VARCHAR(64) NULL;
@@ -119,6 +152,8 @@ ALTER TABLE products ADD UNIQUE INDEX IF NOT EXISTS uq_products_sku (sku);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret VARCHAR(255) NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_temp_secret VARCHAR(255) NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at DATETIME NULL;
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_price DECIMAL(10,2) NOT NULL DEFAULT 0.00;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS STATUS ENUM('NEW', 'PENDING_PAYMENT', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'NEW';
