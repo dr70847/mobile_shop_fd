@@ -1,5 +1,7 @@
 const amqp = require("amqplib");
-const orderService = require("../business/orderService");
+const { createContainer } = require("../app/container");
+
+const { invoiceService } = createContainer();
 
 let started = false;
 
@@ -23,7 +25,7 @@ async function startInventoryEventConsumer() {
       if (!msg) return;
       try {
         const payload = JSON.parse(msg.content.toString("utf8"));
-        const handled = await orderService.handleInventoryEvent(msg.fields.routingKey, payload);
+        const handled = await invoiceService.handleInventoryEvent(msg.fields.routingKey, payload);
         if (!handled) {
           console.warn("Inventory event ignored:", msg.fields.routingKey, payload);
         }

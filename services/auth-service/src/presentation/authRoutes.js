@@ -1,8 +1,9 @@
 const express = require("express");
-const authService = require("../business/authService");
+const { createContainer } = require("../app/container");
 const { requireAuth } = require("./authMiddleware");
 
 const router = express.Router();
+const { userService } = createContainer();
 
 router.post("/signup", async (req, res) => {
   try {
@@ -15,7 +16,7 @@ router.post("/signup", async (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({ message: "Password must be at least 6 characters." });
     }
-    return res.json(await authService.signup({ name, email, password }));
+    return res.json(await userService.signup({ name, email, password }));
   } catch (err) {
     return res.status(err.status || 500).json({ message: err.message || "Database error." });
   }
@@ -28,7 +29,7 @@ router.post("/login", async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required." });
     }
-    return res.json(await authService.login({ email, password }));
+    return res.json(await userService.login({ email, password }));
   } catch (err) {
     return res.status(err.status || 500).json({ message: err.message || "Database error." });
   }
@@ -36,7 +37,7 @@ router.post("/login", async (req, res) => {
 
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    return res.json(await authService.me(req.user.id));
+    return res.json(await userService.me(req.user.id));
   } catch (err) {
     return res.status(err.status || 500).json({ message: err.message || "Database error." });
   }

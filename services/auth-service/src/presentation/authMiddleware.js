@@ -1,4 +1,5 @@
-const jwt = require("jsonwebtoken");
+const { createContainer } = require("../app/container");
+const { tokenService } = createContainer();
 
 function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
@@ -7,7 +8,7 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ message: "Missing auth token." });
   }
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = tokenService.verify(token);
     return next();
   } catch {
     return res.status(401).json({ message: "Invalid or expired token." });

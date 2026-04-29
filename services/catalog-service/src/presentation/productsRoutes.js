@@ -1,8 +1,9 @@
 const express = require("express");
-const productService = require("../business/productService");
+const { createContainer } = require("../app/container");
 const { requireAuth, requireAdmin } = require("./authMiddleware");
 
 const router = express.Router();
+const { productService } = createContainer();
 
 router.get("/", async (_req, res) => {
   try {
