@@ -7,7 +7,7 @@ const { invoiceService } = createContainer();
 
 router.get("/", async (_req, res) => {
   try {
-    return res.json(await invoiceService.listOrders());
+    return res.json(await invoiceService.listOrders(_req.query));
   } catch {
     return res.status(500).json({ message: "Database error." });
   }
@@ -15,7 +15,7 @@ router.get("/", async (_req, res) => {
 
 router.get("/my", requireAuth, async (req, res) => {
   try {
-    return res.json(await invoiceService.listMyOrders(req.user.id));
+    return res.json(await invoiceService.listMyOrders(req.user.id, req.query));
   } catch {
     return res.status(500).json({ message: "Database error." });
   }

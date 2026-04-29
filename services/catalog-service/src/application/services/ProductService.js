@@ -24,8 +24,11 @@ function notFound(message) {
  * }} deps
  */
 function createProductService({ productRepo }) {
-  async function listProducts() {
-    return productRepo.getAll();
+  async function listProducts(query) {
+    if (typeof productRepo.findPage === "function") {
+      return productRepo.findPage(query);
+    }
+    return { data: await productRepo.getAll(), meta: { page: 1, limit: 0, total: 0, totalPages: 1 } };
   }
 
   async function getProduct(id) {

@@ -1,7 +1,7 @@
-const productRepository = require("../../persistence/productRepository");
+const { createSequelizeProductRepository } = require("./SequelizeProductRepository");
 
 function createMySqlProductRepository() {
-  return productRepository;
+  return createSequelizeProductRepository();
 }
 
 module.exports = { createMySqlProductRepository };

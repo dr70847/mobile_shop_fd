@@ -7,7 +7,7 @@ const { productService } = createContainer();
 
 router.get("/", async (_req, res) => {
   try {
-    return res.json(await productService.listProducts());
+    return res.json(await productService.listProducts(_req.query));
   } catch {
     return res.status(500).json({ message: "Database error." });
   }

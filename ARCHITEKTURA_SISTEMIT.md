@@ -171,6 +171,62 @@ Kjo mban ndarje te qarte te shtresave per cdo service:
 - **Persistence**: repositories, DB adapters, migrations
 - **Integration**: HTTP clients, message broker, external APIs
 
+## 5.1) (Kerkesa 1.4) Data Access Layer (DAL)
+
+Qellimi: **izolimi i logjikes se qasjes se te dhenave** nga business/application layer, duke perdorur ORM dhe repository pattern.
+
+### ORM (sipas teknologjise se service)
+
+- **Node.js services (`auth-service`, `catalog-service`, `order-service`)**: ORM **Sequelize**
+  - Konfigurimi: `src/infrastructure/db/sequelize.js`
+  - Modelet: `src/infrastructure/db/models/*`
+  - Repository: `src/infrastructure/persistence/*Repository.js`
+- **Django (`admin-service-django`)**: ORM **SQLAlchemy**
+  - Engine/Session: `admin_api/db.py`
+  - Modele minimale (mapping ne tabela ekzistuese): `admin_api/models.py`
+  - Repository: `admin_api/repositories.py`
+- **Spring Boot (`inventory-service-spring`)**: ORM **Hibernate** (permes Spring Data JPA)
+  - Entity: `domain/InventoryItem.java`
+  - Repository: `persistence/InventoryItemRepository.java`
+
+### Repository pattern (izolim i data-access)
+
+Parimi: `application/service` therrret **repository** dhe jo query direkte SQL.
+
+Shembuj (praktik):
+- `catalog-service`: `ProductService` -> `SequelizeProductRepository`
+- `order-service`: `InvoiceService` -> `SequelizeOrderRepository`
+- `auth-service`: `UserService` -> `SequelizeUserRepository`
+
+### Pagination + Filtering (REST endpoints)
+
+Implementim: query params standard qe nuk e prishin API-n, por e bejne endpoint-in me te forte.
+
+- **Catalog** `GET /products`
+  - `page`, `limit` (max 100)
+  - `sort` = `createdAt|price|stock|name|id`
+  - `dir` = `asc|desc`
+  - `q` (search ne name/description)
+  - `minPrice`, `maxPrice`
+  - `inStock` = `true|false`
+  - Response: `{ data: [...], meta: { page, limit, total, totalPages, sort, dir } }`
+
+- **Orders** `GET /orders` dhe `GET /orders/my`
+  - `page`, `limit`
+  - `sort` = `createdAt|totalPrice|status|id`
+  - `dir` = `asc|desc`
+  - `status` (p.sh. `NEW|CONFIRMED|CANCELLED`)
+  - `minTotal`, `maxTotal`
+  - `dateFrom`, `dateTo` (ISO date)
+  - Response: `{ data, meta }`
+
+- **Admin (Django + SQLAlchemy)**:
+  - `GET /admin/orders` me `page/limit/status/minTotal/maxTotal/dateFrom/dateTo`
+  - `GET /admin/products` me `page/limit/q/minPrice/maxPrice/inStock`
+
+- **Inventory (Spring + Hibernate/JPA)**:
+  - `GET /api/inventory/items` me `page/limit/sort/dir/productId/minStock/maxStock`
+
 ## 6) Kontrata API (versionim)
 
 Vendos prefix:

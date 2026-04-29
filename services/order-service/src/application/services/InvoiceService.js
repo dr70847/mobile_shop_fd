@@ -30,12 +30,14 @@ function conflict(message) {
  * }} deps
  */
 function createInvoiceService({ orderRepo, productQuery, availability, events }) {
-  async function listOrders() {
-    return orderRepo.getAll();
+  async function listOrders(query) {
+    if (typeof orderRepo.findPage === "function") return orderRepo.findPage(query);
+    return { data: await orderRepo.getAll(), meta: { page: 1, limit: 0, total: 0, totalPages: 1 } };
   }
 
-  async function listMyOrders(userId) {
-    return orderRepo.getByUserId(Number(userId));
+  async function listMyOrders(userId, query) {
+    if (typeof orderRepo.findPage === "function") return orderRepo.findPage({ ...query, userId: Number(userId) });
+    return { data: await orderRepo.getByUserId(Number(userId)), meta: { page: 1, limit: 0, total: 0, totalPages: 1 } };
   }
 
   async function checkout(userId, body) {
