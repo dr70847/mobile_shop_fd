@@ -47,8 +47,9 @@ export default function LoginPage() {
     setSubmitting(true);
     setError("");
     try {
+      let authResult = null;
       if (pendingTwoFactor) {
-        await verifyTwoFactorLogin({
+        authResult = await verifyTwoFactorLogin({
           twoFactorToken: pendingTwoFactor.twoFactorToken,
           code: values.code,
         });
@@ -64,8 +65,12 @@ export default function LoginPage() {
           showToast("Shkruaj kodin 6-shifror nga Authenticator app.", "info");
           return;
         }
+        authResult = result;
       }
       showToast("Login successful.", "success");
+      if (authResult?.emailVerificationRequired) {
+        showToast("Emaili juaj nuk eshte i verifikuar. Ju lutem aktivizojeni te Settings.", "warning");
+      }
       navigate(nextPath, { replace: true });
     } catch (err) {
       const message = err?.response?.data?.message || err?.message || "Login failed.";

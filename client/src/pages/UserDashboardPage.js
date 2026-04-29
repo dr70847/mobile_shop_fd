@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import QRCode from "qrcode";
 import {
@@ -27,7 +27,74 @@ export default function UserDashboardPage() {
   const [setupCode, setSetupCode] = useState("");
   const [disableCode, setDisableCode] = useState("");
   const [working, setWorking] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    profileImageUrl: user?.profile_image_url || "",
+  });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
   const twoFactorEnabled = Boolean(user?.two_factor_enabled);
+  const emailVerified = Boolean(user?.email_verified_at);
+
+  useEffect(() => {
+    setProfileForm({
+      name: user?.name || "",
+      email: user?.email || "",
+      profileImageUrl: user?.profile_image_url || "",
+    });
+  }, [user]);
+
+  async function saveProfile(e) {
+    e.preventDefault();
+    if (!user?.id) return;
+    setWorking(true);
+    try {
+      await axios.patch(`/api/v1/users/${user.id}`, {
+        name: profileForm.name,
+        email: profileForm.email,
+        profile_image_url: profileForm.profileImageUrl,
+      });
+      await refreshUser();
+      showToast("Profile settings updated.", "success");
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Could not update profile.", "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function requestEmailVerification() {
+    setWorking(true);
+    try {
+      const res = await axios.post("/auth/email-verification/request");
+      showToast(res?.data?.message || "Verification email sent.", "info");
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Could not send verification email.", "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function changePassword(e) {
+    e.preventDefault();
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      showToast("Fill current and new password.", "warning");
+      return;
+    }
+    setWorking(true);
+    try {
+      await axios.post("/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordForm({ currentPassword: "", newPassword: "" });
+      showToast("Password changed successfully.", "success");
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Could not change password.", "error");
+    } finally {
+      setWorking(false);
+    }
+  }
 
   async function startTwoFactorSetup() {
     setWorking(true);
@@ -100,6 +167,80 @@ export default function UserDashboardPage() {
               </ListItem>
             ))}
           </List>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Account settings
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2, opacity: 0.8 }}>
+            Update profile photo, username, and email.
+          </Typography>
+          <Stack spacing={2} component="form" onSubmit={saveProfile}>
+            {emailVerified ? (
+              <Alert severity="success">Your email is verified.</Alert>
+            ) : (
+              <Alert severity="warning">
+                Your email is not verified yet. Verify it to increase account security.
+              </Alert>
+            )}
+            {!emailVerified ? (
+              <Button variant="outlined" onClick={requestEmailVerification} disabled={working}>
+                Send verification email
+              </Button>
+            ) : null}
+            <TextField
+              label="Username"
+              value={profileForm.name}
+              onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={profileForm.email}
+              onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Profile photo URL"
+              value={profileForm.profileImageUrl}
+              onChange={(e) => setProfileForm((p) => ({ ...p, profileImageUrl: e.target.value }))}
+              fullWidth
+            />
+            <Button type="submit" variant="contained" disabled={working}>
+              Save profile settings
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Security settings
+          </Typography>
+          <Stack spacing={2} component="form" onSubmit={changePassword}>
+            <TextField
+              label="Current password"
+              type="password"
+              value={passwordForm.currentPassword}
+              onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="New password"
+              type="password"
+              value={passwordForm.newPassword}
+              onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+              fullWidth
+            />
+            <Button type="submit" variant="contained" disabled={working}>
+              Change password
+            </Button>
+          </Stack>
         </CardContent>
       </Card>
 

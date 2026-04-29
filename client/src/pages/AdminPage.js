@@ -20,6 +20,8 @@ export default function AdminPage() {
   const [editBusy, setEditBusy] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   const loadProducts = useCallback(async () => {
     setError("");
@@ -43,6 +45,22 @@ export default function AdminPage() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const res = await axios.get("/api/v1/users");
+      setUsers(Array.isArray(res?.data?.items) ? res.data.items : []);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Failed to load users.");
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   async function onAddSubmit(e) {
     e.preventDefault();
@@ -114,6 +132,31 @@ export default function AdminPage() {
       setError(err?.response?.data?.message || err?.message || "Could not delete product.");
     } finally {
       setDeleteId(null);
+    }
+  }
+
+  async function toggleAdminRole(userId, isAdmin) {
+    try {
+      await axios.patch(`/api/v1/users/${userId}/role`, { is_admin: !isAdmin });
+      await loadUsers();
+      showToast("User role updated.", "success");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not update role.");
+    }
+  }
+
+  async function toggleUserActive(userItem) {
+    try {
+      await axios.patch(`/api/v1/users/${userItem.id}`, {
+        name: userItem.name,
+        email: userItem.email,
+        profile_image_url: userItem.profile_image_url || "",
+        is_active: !Boolean(userItem.is_active),
+      });
+      await loadUsers();
+      showToast("User status updated.", "success");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not update user status.");
     }
   }
 
@@ -311,6 +354,50 @@ export default function AdminPage() {
           if (id) removeProduct(id);
         }}
       />
+
+      <div className="ms-panel" style={{ marginTop: 16 }}>
+        <div className="ms-panel__header">
+          <div className="ms-panel__title">Admin settings - user controls</div>
+          <div className="ms-panel__subtle">Manage user roles and account status</div>
+        </div>
+        <div className="ms-panel__body ms-adminTableWrap">
+          {usersLoading ? (
+            <div className="ms-state">Loading users...</div>
+          ) : users.length === 0 ? (
+            <div className="ms-state">No users found.</div>
+          ) : (
+            <table className="ms-adminTable">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.name}</td>
+                    <td>{u.email}</td>
+                    <td>{u.is_admin ? "Admin" : "User"}</td>
+                    <td>{u.is_active ? "Active" : "Disabled"}</td>
+                    <td className="ms-adminTable__actions">
+                      <button className="ms-btn ms-btn--mini" type="button" onClick={() => toggleAdminRole(u.id, Boolean(u.is_admin))}>
+                        {u.is_admin ? "Make User" : "Make Admin"}
+                      </button>
+                      <button className="ms-btn ms-btn--mini" type="button" onClick={() => toggleUserActive(u)}>
+                        {u.is_active ? "Disable" : "Activate"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

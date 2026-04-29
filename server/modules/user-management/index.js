@@ -108,19 +108,30 @@ router.patch("/:id", requireAuth, (req, res) => {
   }
   const name = String(req.body?.name || "").trim();
   const email = String(req.body?.email || "").trim().toLowerCase();
+  const profileImageUrl = req.body?.profile_image_url;
   const isActive = req.body?.is_active;
   if (!name || !email) return res.status(400).json({ message: "name and email are required." });
 
-  return User.updateProfile({ id, name, email }, (err, result) => {
+  return User.updateProfile({ id, name, email, profileImageUrl }, (err, result) => {
     if (err) return res.status(500).json({ message: "Database error." });
     if (!result.affectedRows) return res.status(404).json({ message: "User not found." });
     if (req.user.is_admin && typeof isActive !== "undefined") {
       return User.setActive({ id, isActive: Boolean(isActive) }, () => {
-        recordAudit(req, { action: "USER_PROFILE_UPDATE", targetType: "user", targetId: String(id), metadata: { name, email, is_active: Boolean(isActive) } });
+        recordAudit(req, {
+          action: "USER_PROFILE_UPDATE",
+          targetType: "user",
+          targetId: String(id),
+          metadata: { name, email, profile_image_url: profileImageUrl || null, is_active: Boolean(isActive) },
+        });
         return res.json({ message: "User updated." });
       });
     }
-    recordAudit(req, { action: "USER_PROFILE_UPDATE", targetType: "user", targetId: String(id), metadata: { name, email } });
+    recordAudit(req, {
+      action: "USER_PROFILE_UPDATE",
+      targetType: "user",
+      targetId: String(id),
+      metadata: { name, email, profile_image_url: profileImageUrl || null },
+    });
     return res.json({ message: "User updated." });
   });
 });

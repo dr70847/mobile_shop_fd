@@ -19,7 +19,7 @@ const User = {
 
   findById: (id, callback) => {
     db.query(
-      "SELECT id, NAME AS name, email, is_admin, is_active, email_verified_at, created_at, two_factor_enabled FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, NAME AS name, email, is_admin, is_active, email_verified_at, profile_image_url, created_at, two_factor_enabled FROM users WHERE id = ? LIMIT 1",
       [id],
       (err, rows) => {
         if (!err) return callback(null, rows);
@@ -36,6 +36,7 @@ const User = {
             row.two_factor_enabled = 0;
             row.is_active = 1;
             row.email_verified_at = null;
+            row.profile_image_url = null;
             return callback(null, [row]);
           }
         );
@@ -84,8 +85,19 @@ const User = {
     db.query("UPDATE users SET is_admin = ? WHERE id = ?", [isAdmin ? 1 : 0, id], callback);
   },
 
-  updateProfile: ({ id, name, email }, callback) => {
-    db.query("UPDATE users SET NAME = ?, email = ? WHERE id = ?", [name, email, id], callback);
+  updateProfile: ({ id, name, email, profileImageUrl }, callback) => {
+    if (typeof profileImageUrl !== "undefined") {
+      return db.query(
+        "UPDATE users SET NAME = ?, email = ?, profile_image_url = ? WHERE id = ?",
+        [name, email, profileImageUrl || null, id],
+        (err, result) => {
+          if (!err) return callback(null, result);
+          if (!isBadFieldError(err)) return callback(err);
+          return db.query("UPDATE users SET NAME = ?, email = ? WHERE id = ?", [name, email, id], callback);
+        }
+      );
+    }
+    return db.query("UPDATE users SET NAME = ?, email = ? WHERE id = ?", [name, email, id], callback);
   },
 
   updatePasswordHash: ({ id, passwordHash }, callback) => {
@@ -98,6 +110,14 @@ const User = {
 
   markEmailVerifiedAndActivate: ({ id }, callback) => {
     db.query("UPDATE users SET is_active = 1, email_verified_at = NOW() WHERE id = ?", [id], callback);
+  },
+
+  isEmailVerified: (id, callback) => {
+    db.query("SELECT email_verified_at FROM users WHERE id = ? LIMIT 1", [id], (err, rows) => {
+      if (err) return callback(err);
+      const row = rows && rows[0];
+      return callback(null, Boolean(row?.email_verified_at));
+    });
   },
 
   deleteById: (id, callback) => {

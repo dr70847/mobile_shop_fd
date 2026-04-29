@@ -138,6 +138,9 @@ function normalizeUserRow(userRow) {
     is_admin: isAdmin,
     roles: isAdmin ? ["ROLE_ADMIN", "ROLE_USER"] : ["ROLE_USER"],
     two_factor_enabled: Boolean(userRow.two_factor_enabled),
+    email_verified_at: userRow.email_verified_at || null,
+    email_verification_required: !userRow.email_verified_at,
+    profile_image_url: userRow.profile_image_url || null,
   };
 }
 
@@ -214,7 +217,7 @@ function authenticateUser(req, res, credentials, responseShape = "jwt") {
 
     const ok = await bcrypt.compare(password, userRow.PASSWORD || "");
     if (!ok) return res.status(401).json({ message: "Invalid email or password." });
-    if (!isUserActive(userRow)) return res.status(403).json({ message: "Account is not active. Check your email for activation link." });
+    if (!isUserActive(userRow)) return res.status(403).json({ message: "Account is not active. Contact support/admin." });
 
     const user = normalizeUserRow(userRow);
     if (user.two_factor_enabled && userRow.two_factor_secret) {
@@ -256,6 +259,8 @@ function authenticateUser(req, res, credentials, responseShape = "jwt") {
         refreshToken: tokens.refreshToken,
         expiresIn: tokens.accessTtlSeconds,
         user,
+        emailVerificationRequired: !user.email_verified_at,
+        warning: !user.email_verified_at ? "Email is not verified. Please verify it from Settings." : undefined,
         _links: authLinks(req),
       });
     });
@@ -289,7 +294,7 @@ router.post("/signup", (req, res) => {
 
     try {
       const password_hash = await bcrypt.hash(password, 10);
-      User.create({ name, email, password_hash, isActive: 0 }, async (err2, result) => {
+      User.create({ name, email, password_hash, isActive: 1 }, async (err2, result) => {
         if (err2) {
           console.error("auth/signup create:", err2.code || err2.message);
           return res.status(500).json({ message: "Database error." });
@@ -417,6 +422,8 @@ router.post("/2fa/verify-login", (req, res) => {
         refreshToken: tokens.refreshToken,
         expiresIn: tokens.accessTtlSeconds,
         user,
+        emailVerificationRequired: !user.email_verified_at,
+        warning: !user.email_verified_at ? "Email is not verified. Please verify it from Settings." : undefined,
         _links: authLinks(req),
       });
     });
@@ -504,6 +511,25 @@ router.get("/activate", (req, res) => {
         return res.json({ message: "Account activated. You can login now." });
       });
     });
+  });
+});
+
+router.post("/email-verification/request", requireAuth, (req, res) => {
+  return User.findById(req.user.id, async (err, rows) => {
+    if (err) return res.status(500).json({ message: "Database error." });
+    const user = rows && rows[0];
+    if (!user) return res.status(404).json({ message: "User not found." });
+    if (user.email_verified_at) {
+      return res.json({ message: "Email is already verified." });
+    }
+    try {
+      await sendActivationEmail(req, user);
+      recordAudit(req, { action: "AUTH_EMAIL_VERIFICATION_REQUEST", targetType: "user", targetId: String(req.user.id) });
+      return res.json({ message: "Verification email sent. Please check your inbox." });
+    } catch (mailErr) {
+      console.error("auth/email-verification/request:", mailErr.message || mailErr);
+      return res.status(500).json({ message: "Could not send verification email." });
+    }
   });
 });
 
