@@ -3,6 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const orderRoutes = require("./presentation/orderRoutes");
 const { startInventoryEventConsumer } = require("./integration/inventoryEventConsumer");
+const { startKafkaOrderAuditConsumer } = require("./integration/kafkaOrderAuditConsumer");
 
 dotenv.config();
 
@@ -25,3 +26,5 @@ const enableConsumer = String(process.env.ENABLE_INVENTORY_EVENT_CONSUMER || "tr
 if (enableConsumer) {
   startInventoryEventConsumer();
 }
+
+startKafkaOrderAuditConsumer();

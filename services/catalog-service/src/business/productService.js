@@ -1,11 +1,23 @@
 const products = require("../persistence/productRepository");
+const productCache = require("../integration/productCache");
 
 async function listProducts() {
-  return products.getAll();
+  const key = productCache.keys.list();
+  const hit = await productCache.getJson(key);
+  if (hit) return hit;
+  const rows = await products.getAll();
+  await productCache.setJson(key, rows);
+  return rows;
 }
 
 async function getProduct(id) {
-  return products.getById(id);
+  const numericId = Number(id);
+  const key = productCache.keys.product(numericId);
+  const hit = await productCache.getJson(key);
+  if (hit) return hit;
+  const row = await products.getById(numericId);
+  if (row) await productCache.setJson(key, row);
+  return row;
 }
 
 async function createProduct(input) {
@@ -20,12 +32,14 @@ async function createProduct(input) {
     throw err;
   }
 
-  return products.create({
+  const created = await products.create({
     name,
     description,
     price,
     stock: Number.isFinite(stock) ? Math.max(0, stock) : 0,
   });
+  await productCache.invalidateProduct(created?.id);
+  return created;
 }
 
 async function updateProduct(id, input) {
@@ -53,6 +67,7 @@ async function updateProduct(id, input) {
     err.status = 404;
     throw err;
   }
+  await productCache.invalidateProduct(numericId);
   return { id: numericId };
 }
 
@@ -69,6 +84,7 @@ async function deleteProduct(id) {
     err.status = 404;
     throw err;
   }
+  await productCache.invalidateProduct(numericId);
 }
 
 module.exports = { listProducts, getProduct, createProduct, updateProduct, deleteProduct };

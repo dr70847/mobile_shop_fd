@@ -1,0 +1,10 @@
+_format_version: "3.0"
+_transform: false
+
+services:
+  - name: mobileshop-gateway
+    url: http://gateway:8080
+    routes:
+      - name: all-apis
+        paths:
+          - /

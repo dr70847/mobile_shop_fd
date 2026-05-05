@@ -108,8 +108,12 @@ Pergjegjesi:
 
 ## API Gateway
 
-Rekomandim:
-- lokale: Traefik ose Kong
+Opsione ne literaturë / industrie (per `MobileShop` jane reflektuar ne kod):
+- **Zuul (Spring Cloud Netflix)**: gateway historik per Spring; ne praktike zevendesohet me **Spring Cloud Gateway** (Spring Boot 3). Ne kete repo roli i njejte eshte **gateway Express** (`gateway/`) + opsionalisht **Nginx** (`infra/nginx/`, porti `9080`) dhe **Kong** (`infra/kong/`, `docker compose --profile kong`).
+- **Kong / Nginx**: Kong per politika te pasura (plugins); Nginx si reverse proxy ne shtresen e pare (edge) para gateway-it te aplikacionit.
+
+Rekomandim (permbledhje):
+- lokale: Nginx + gateway i ngjashem me Kong (ose Kong me `--profile kong`)
 - cloud: AWS API Gateway / GCP API Gateway
 
 Funksione:
@@ -126,8 +130,9 @@ Nese perdoret Kubernetes:
 - discovery nativ me `Service` + DNS
 - p.sh. `http://catalog-service.default.svc.cluster.local`
 
-Nese jo-K8s:
-- Consul/Eureka per regjistrim dhe health checks.
+Nese jo-K8s (si ne `docker-compose.microservices.yml`):
+- **Consul** + skripti `infra/consul/register-services.sh` (job `consul-register`) per regjistrim dhe health checks ne agent.
+- **Eureka** (`services/eureka-server/`); `inventory-service` regjistrohet si **Eureka Client**; gateway ben lookup me `EUREKA_URL` ne `gateway/src/serviceDiscovery.js`.
 
 ## 5) Struktura e rekomanduar e repo-s
 

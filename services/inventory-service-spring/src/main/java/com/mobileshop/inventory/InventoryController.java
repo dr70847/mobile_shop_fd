@@ -1,7 +1,9 @@
 package com.mobileshop.inventory;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import com.mobileshop.inventory.application.InventoryQueryService;
+import com.mobileshop.inventory.integration.CatalogRestClient;
 import com.mobileshop.inventory.domain.InventoryItem;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/inventory")
 public class InventoryController {
   private final InventoryQueryService inventory;
+  private final CatalogRestClient catalog;
 
-  public InventoryController(InventoryQueryService inventory) {
+  public InventoryController(InventoryQueryService inventory, CatalogRestClient catalog) {
     this.inventory = inventory;
+    this.catalog = catalog;
   }
 
   @GetMapping("/health")
@@ -31,7 +35,12 @@ public class InventoryController {
   public Map<String, Object> stock(@PathVariable int id) {
     int available =
         inventory.findByProductId(id).map(InventoryItem::getAvailableStock).orElse(0);
-    return Map.of("productId", id, "availableStock", available, "source", "hibernate-jpa");
+    LinkedHashMap<String, Object> body = new LinkedHashMap<>();
+    body.put("productId", id);
+    body.put("availableStock", available);
+    body.put("source", "hibernate-jpa");
+    catalog.fetchProductName(id).ifPresent(name -> body.put("catalogProductNameViaRestCircuitBreaker", name));
+    return body;
   }
 
   @GetMapping("/items")

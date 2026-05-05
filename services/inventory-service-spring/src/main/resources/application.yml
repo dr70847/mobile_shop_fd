@@ -1,6 +1,40 @@
 server:
   port: ${SERVER_PORT:8081}
 
+spring:
+  application:
+    name: inventory-service
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        auto-startup: ${SPRING_RABBITMQ_LISTENER_ENABLED:true}
+
+mobileshop:
+  catalog:
+    base-url: ${CATALOG_SERVICE_BASE_URL:http://localhost:4002}
+  ratelimit:
+    requests-per-minute: ${INVENTORY_RATE_LIMIT_PER_MIN:120}
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      catalogRest:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 4
+        failureRateThreshold: 50
+        waitDurationInOpenState: 12s
+
 management:
   endpoints:
     web:

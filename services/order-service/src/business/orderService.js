@@ -33,6 +33,7 @@ async function checkout(userId, body) {
   try {
     rows = await checkAvailability(ids);
   } catch {
+    /** gRPC + circuit breaker (opossum) — fallback në REST sinkron përmes catalogReadRepository */
     rows = await catalog.getProductsByIds(ids);
   }
   const priceById = new Map(rows.map((p) => [p.id, Number(p.price || 0)]));
