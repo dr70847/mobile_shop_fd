@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  locust-master:
+    image: locustio/locust:2.17
+    container_name: mobileshop-locust-master
+    ports:
+      - "8089:8089"
+    volumes:
+      - .:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --master
+      --host=http://host.docker.internal:3001
+      --html=/mnt/locust/reports/master_report.html
+    environment:
+      - LOCUST_MODE=master
+    networks:
+      - locust-net
+
+  locust-worker-1:
+    image: locustio/locust:2.17
+    container_name: mobileshop-locust-worker-1
+    volumes:
+      - .:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --worker
+      --master-host=locust-master
+    environment:
+      - LOCUST_MODE=worker
+    depends_on:
+      - locust-master
+    networks:
+      - locust-net
+
+  locust-worker-2:
+    image: locustio/locust:2.17
+    container_name: mobileshop-locust-worker-2
+    volumes:
+      - .:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --worker
+      --master-host=locust-master
+    environment:
+      - LOCUST_MODE=worker
+    depends_on:
+      - locust-master
+    networks:
+      - locust-net
+
+  locust-worker-3:
+    image: locustio/locust:2.17
+    container_name: mobileshop-locust-worker-3
+    volumes:
+      - .:/mnt/locust
+    command: >
+      -f /mnt/locust/locustfile.py
+      --worker
+      --master-host=locust-master
+    environment:
+      - LOCUST_MODE=worker
+    depends_on:
+      - locust-master
+    networks:
+      - locust-net
+
+  locust-web:
+    image: locustio/locust:2.17
+    container_name: mobileshop-locust-web
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/mnt/locust
+      - ./reports:/mnt/locust/reports
+    command: >
+      -f /mnt/locust/locustfile.py
+      --web-host=0.0.0.0
+      --host=http://host.docker.internal:3001
+      --users=1000
+      --spawn-rate=50
+      --run-time=15m
+      --html=/mnt/locust/reports/web_report.html
+    environment:
+      - LOCUST_MODE=standalone
+    networks:
+      - locust-net
+
+networks:
+  locust-net:
+    driver: bridge
+
+volumes:
+  reports:
+    driver: local

@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mysql-test:
+    image: mysql:8.0
+    container_name: mobileshop-test-db
+    environment:
+      MYSQL_ROOT_PASSWORD: testpassword
+      MYSQL_DATABASE: mobileshop_test
+      MYSQL_USER: testuser
+      MYSQL_PASSWORD: testpass
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./test-schema.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - test-network
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: mobileshop-test-runner
+    environment:
+      NODE_ENV: test
+      TEST_DB_HOST: mysql-test
+      TEST_DB_USER: testuser
+      TEST_DB_PASSWORD: testpass
+      TEST_DB_NAME: mobileshop_test
+      JWT_SECRET: test-jwt-secret
+      ACCESS_TOKEN_TTL: 15m
+    depends_on:
+      - mysql-test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - test-network
+    command: npm run test:integration
+
+networks:
+  test-network:
+    driver: bridge
