@@ -6,7 +6,7 @@ import "./admin.css";
 import { useNotification } from "../ui/NotificationContext";
 import ConfirmActionDialog from "../ui/components/ConfirmActionDialog";
 
-const emptyForm = { name: "", description: "", price: "", stock: "0" };
+const emptyForm = { name: "", description: "", image_url: "", price: "", stock: "0" };
 
 export default function AdminPage() {
   const { showToast } = useNotification();
@@ -70,6 +70,7 @@ export default function AdminPage() {
       await axios.post("/products", {
         name: addForm.name.trim(),
         description: addForm.description.trim(),
+        image_url: addForm.image_url.trim(),
         price: Number(addForm.price),
         stock: addForm.stock,
       });
@@ -88,6 +89,7 @@ export default function AdminPage() {
     setEditForm({
       name: String(p.name ?? p.NAME ?? ""),
       description: String(p.description ?? ""),
+      image_url: String(p.image_url ?? ""),
       price: String(p.price ?? ""),
       stock: String(p.stock ?? "0"),
     });
@@ -107,6 +109,7 @@ export default function AdminPage() {
       await axios.put(`/products/${editId}`, {
         name: editForm.name.trim(),
         description: editForm.description.trim(),
+        image_url: editForm.image_url.trim(),
         price: Number(editForm.price),
         stock: editForm.stock,
       });
@@ -193,6 +196,15 @@ export default function AdminPage() {
                 placeholder="Short summary"
               />
             </div>
+            <div className="ms-formRow">
+              <div className="ms-formLabel">Image URL</div>
+              <input
+                className="ms-input"
+                value={addForm.image_url}
+                onChange={(e) => setAddForm((f) => ({ ...f, image_url: e.target.value }))}
+                placeholder="https://example.com/phone.jpg"
+              />
+            </div>
             <div className="ms-adminForm__row2">
               <div className="ms-formRow">
                 <div className="ms-formLabel">Price (USD)</div>
@@ -248,6 +260,7 @@ export default function AdminPage() {
                   <th>Description</th>
                   <th>Price</th>
                   <th>Stock</th>
+                  <th>Image</th>
                   <th />
                 </tr>
               </thead>
@@ -305,6 +318,17 @@ export default function AdminPage() {
                           />
                         ) : (
                           p.stock ?? "0"
+                        )}
+                      </td>
+                      <td>
+                        {isEditing ? (
+                          <input
+                            className="ms-input ms-input--table"
+                            value={editForm.image_url}
+                            onChange={(e) => setEditForm((f) => ({ ...f, image_url: e.target.value }))}
+                          />
+                        ) : (
+                          p.image_url ? "Yes" : "No"
                         )}
                       </td>
                       <td className="ms-adminTable__actions">

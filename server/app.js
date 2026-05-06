@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const { apiLimiter } = require("./middleware/rateLimit");
 const { cacheMiddleware } = require("./middleware/cache");
-const { sanitizeInput, sqlInjectionProtection } = require("./middleware/security");
+const { sanitizeInput, sqlInjectionProtection, outputEncodingMiddleware } = require("./middleware/security");
 const { openApiSpec } = require("./docs/openapi");
 const { modules } = require("./modules/registry");
 
@@ -43,7 +43,7 @@ app.use(helmet({
   },
   noSniff: true,
   frameguard: { action: 'deny' },
-  xssFilter: true
+  referrerPolicy: { policy: "no-referrer" }
 }));
 
 app.use(statusMonitor({ path: "/status" }));
@@ -54,6 +54,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Input sanitization and SQL injection protection
 app.use(sanitizeInput);
 app.use(sqlInjectionProtection);
+app.use(outputEncodingMiddleware);
 
 app.get("/", (req, res) => {
   res.send("Backend po funksionon!");

@@ -1,5 +1,15 @@
 const { body, validationResult, query, param } = require('express-validator');
-const createDOMPurify = require('isomorphic-dompurify');
+
+const sanitizeText = (value) => {
+  if (typeof value !== 'string') return value;
+  // Strip HTML/script tags and inline event handlers in a lightweight way.
+  return value
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+    .replace(/ on\w+="[^"]*"/gi, '')
+    .replace(/ on\w+='[^']*'/gi, '')
+    .replace(/<[^>]*>/g, '');
+};
 
 // XSS Protection middleware
 const sanitizeInput = (req, res, next) => {
@@ -25,11 +35,7 @@ const sanitizeInput = (req, res, next) => {
 const sanitizeObject = (obj) => {
   for (const key in obj) {
     if (typeof obj[key] === 'string') {
-      // Remove HTML tags and encode special characters
-      obj[key] = createDOMPurify.sanitize(obj[key], {
-        ALLOWED_TAGS: [], // No HTML tags allowed
-        ALLOWED_ATTR: []
-      });
+      obj[key] = sanitizeText(obj[key]);
     } else if (typeof obj[key] === 'object' && obj[key] !== null) {
       sanitizeObject(obj[key]);
     }
@@ -48,6 +54,45 @@ const encodeOutput = (data) => {
       .replace(/\//g, '&#x2F;');
   }
   return data;
+};
+
+const deepEncodeOutput = (value) => {
+  if (typeof value === 'string') {
+    return encodeOutput(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => deepEncodeOutput(item));
+  }
+  if (value && typeof value === 'object') {
+    const encoded = {};
+    for (const [key, nestedValue] of Object.entries(value)) {
+      encoded[key] = deepEncodeOutput(nestedValue);
+    }
+    return encoded;
+  }
+  return value;
+};
+
+// Output encoding middleware to reduce reflected/stored XSS risk.
+const outputEncodingMiddleware = (_req, res, next) => {
+  const originalSend = res.send.bind(res);
+  const originalType = res.type.bind(res);
+
+  res.type = (type) => {
+    res.locals = res.locals || {};
+    res.locals.responseType = String(type || "").toLowerCase();
+    return originalType(type);
+  };
+
+  res.send = (payload) => {
+    const responseType = String(res.getHeader("Content-Type") || res.locals?.responseType || "").toLowerCase();
+    if (typeof payload === "string" && responseType.includes("text/html")) {
+      return originalSend(encodeOutput(payload));
+    }
+    return originalSend(payload);
+  };
+
+  next();
 };
 
 // Validation middleware for common inputs
@@ -105,14 +150,24 @@ const validateUserInput = {
       .escape()
       .withMessage('Product name must be 1-255 characters'),
     body('description')
+      .optional({ nullable: true })
       .trim()
       .isLength({ max: 1000 })
       .escape()
       .withMessage('Description must not exceed 1000 characters'),
+    body('image_url')
+      .optional({ nullable: true, checkFalsy: true })
+      .isURL({ protocols: ['http', 'https'], require_protocol: true })
+      .withMessage('Image URL must be a valid http/https URL'),
     body('price')
       .isFloat({ min: 0 })
       .withMessage('Price must be a positive number'),
-    body('stock_quantity')
+    body('stock')
+      .optional()
+      .customSanitizer((value, { req }) => {
+        if (typeof value !== 'undefined') return value;
+        return req.body?.stock_quantity;
+      })
       .isInt({ min: 0 })
       .withMessage('Stock must be a non-negative integer'),
     (req, res, next) => {
@@ -194,6 +249,7 @@ const sqlInjectionProtection = (req, res, next) => {
 module.exports = {
   sanitizeInput,
   encodeOutput,
+  outputEncodingMiddleware,
   validateUserInput,
   sqlInjectionProtection
 };

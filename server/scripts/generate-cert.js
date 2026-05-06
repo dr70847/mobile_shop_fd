@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const selfsigned = require('selfsigned');
 
 // Generate self-signed certificate for development (Windows compatible)
 const generateSelfSignedCert = () => {
@@ -54,22 +55,22 @@ const generateSelfSignedCert = () => {
     console.log('3. Or use Git Bash which includes OpenSSL');
     console.log('\n🔧 Alternative: Use PowerShell with New-SelfSignedCertificate');
     
-    // PowerShell alternative for Windows
+    // Pure JS fallback for Windows/non-OpenSSL environments
     try {
-      console.log('\n🔄 Trying PowerShell alternative...');
-      const psScript = `
-        $cert = New-SelfSignedCertificate -DnsName "localhost" -CertStoreLocation "cert:\\LocalMachine\\My" -KeyUsage KeyEncipherment,DigitalSignature -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.1")
-        $password = ConvertTo-SecureString -String "password" -Force -AsPlainText
-        Export-PfxCertificate -Cert $cert -FilePath "${keyPath.replace('.key', '.pfx')}" -Password $password
-      `;
-      
-      execSync(`powershell -Command "${psScript}"`, { stdio: 'pipe' });
-      console.log('✅ PowerShell certificate generated!');
-    } catch (psError) {
-      console.error('❌ PowerShell method also failed:', psError.message);
+      console.log('\n🔄 Trying JavaScript fallback...');
+      const attrs = [{ name: 'commonName', value: 'localhost' }];
+      const pems = selfsigned.generate(attrs, {
+        keySize: 2048,
+        days: 365,
+        algorithm: 'sha256'
+      });
+      fs.writeFileSync(keyPath, pems.private, 'utf8');
+      fs.writeFileSync(certPath, pems.cert, 'utf8');
+      console.log('✅ JavaScript fallback certificate generated!');
+    } catch (fallbackError) {
+      console.error('❌ JavaScript fallback also failed:', fallbackError.message);
+      process.exit(1);
     }
-    
-    process.exit(1);
   }
 };
 

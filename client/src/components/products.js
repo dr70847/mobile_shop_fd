@@ -6,7 +6,9 @@ import { AuthContext } from "../auth/AuthContext";
 
 const Products = () => {
   const [products, setProducts] = useState([]);
+  const [draftQuery, setDraftQuery] = useState("");
   const [query, setQuery] = useState("");
+  const [showInStockOnly, setShowInStockOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cart, setCart] = useState([]);
@@ -47,7 +49,9 @@ const Products = () => {
   const normalizedQuery = query.trim().toLowerCase();
   const visible = products.filter((p) => {
     const name = String(p.name ?? p.NAME ?? "").toLowerCase();
-    return normalizedQuery ? name.includes(normalizedQuery) : true;
+    const queryMatch = normalizedQuery ? name.includes(normalizedQuery) : true;
+    const stockMatch = !showInStockOnly || Number(p.stock ?? 0) > 0;
+    return queryMatch && stockMatch;
   });
 
   const total = products.length;
@@ -114,8 +118,15 @@ const Products = () => {
               >
                 Explore catalog
               </button>
-              <button className="ms-btn" onClick={() => setQuery("")}>
-                Clear search
+              <button
+                className="ms-btn"
+                onClick={() => {
+                  setDraftQuery("");
+                  setQuery("");
+                  setShowInStockOnly(false);
+                }}
+              >
+                Clear filters
               </button>
             </div>
           </div>
@@ -181,11 +192,22 @@ const Products = () => {
           <div className="ms-search">
             <input
               className="ms-input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={draftQuery}
+              onChange={(e) => setDraftQuery(e.target.value)}
               placeholder="Search phones…"
               aria-label="Search products"
             />
+            <label className="ms-filterToggle">
+              <input
+                type="checkbox"
+                checked={showInStockOnly}
+                onChange={(e) => setShowInStockOnly(e.target.checked)}
+              />
+              In stock only
+            </label>
+            <button className="ms-btn ms-btn--mini" type="button" onClick={() => setQuery(draftQuery)}>
+              Apply
+            </button>
           </div>
         </div>
 
@@ -208,7 +230,9 @@ const Products = () => {
               const price = Number(p.price || 0).toFixed(2);
               return (
                 <article className="ms-card" key={p.id}>
-                  <div className="ms-card__media" aria-hidden="true" />
+                  <div className="ms-card__media" aria-hidden="true">
+                    {p.image_url ? <img src={p.image_url} alt={name} className="ms-card__img" /> : null}
+                  </div>
                   <div className="ms-card__body">
                     <h3 className="ms-card__name">{name}</h3>
                     <div className="ms-card__meta">

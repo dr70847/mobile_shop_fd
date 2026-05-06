@@ -197,11 +197,27 @@
 }
 
 .ms-card__media {
+  position: relative;
   height: 98px;
   background: radial-gradient(480px 180px at 30% 10%, rgba(124, 58, 237, 0.5), transparent 60%),
     radial-gradient(420px 180px at 70% 20%, rgba(34, 211, 238, 0.35), transparent 55%),
     rgba(10, 14, 28, 0.35);
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.ms-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ms-filterToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .ms-card__body {

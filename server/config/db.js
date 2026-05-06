@@ -135,6 +135,7 @@ function runSchemaBootstrap() {
                 description TEXT,
                 price DECIMAL(10,2) NOT NULL,
                 stock INT NOT NULL DEFAULT 0,
+                image_url VARCHAR(512) NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
               )`,
                 (err4) => {
@@ -142,6 +143,14 @@ function runSchemaBootstrap() {
                     console.error('Failed to ensure products table:', err4.code || err4.message);
                     return;
                   }
+                  pool.query(
+                    'ALTER TABLE products ADD COLUMN image_url VARCHAR(512) NULL',
+                    (err4b) => {
+                      if (err4b && err4b.code !== 'ER_DUP_FIELDNAME') {
+                        console.error('Failed to add image_url to products:', err4b.code || err4b.message);
+                      }
+                    }
+                  );
                   pool.query(
                     `CREATE TABLE IF NOT EXISTS refresh_tokens (
                       id INT AUTO_INCREMENT PRIMARY KEY,

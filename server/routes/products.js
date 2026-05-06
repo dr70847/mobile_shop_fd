@@ -27,7 +27,7 @@ router.post('/', ...adminChain, validateUserInput.product, (req, res) => {
         name: req.body?.name,
         description: req.body?.description,
         price: req.body?.price,
-        stock: req.body?.stock_quantity,
+        stock: req.body?.stock,
     });
     try {
         entity.validatePricing();
@@ -41,6 +41,7 @@ router.post('/', ...adminChain, validateUserInput.product, (req, res) => {
             description: entity.description,
             price: entity.price,
             stock: entity.stock,
+            image_url: req.body?.image_url,
         },
         (err, result) => {
             if (err) {
@@ -82,6 +83,7 @@ router.put('/:id', ...adminChain, validateUserInput.orderId, validateUserInput.p
             description: entity.description,
             price: entity.price,
             stock: entity.stock,
+            image_url: req.body?.image_url,
         },
         (err, result) => {
             if (err) {
