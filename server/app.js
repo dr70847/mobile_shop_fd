@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const statusMonitor = require("express-status-monitor");
 const swaggerUi = require("swagger-ui-express");
 const fs = require("fs");
 const path = require("path");
@@ -16,11 +17,16 @@ const paymentRoutes = require("./routes/payments");
 const shipmentRoutes = require("./routes/shipments");
 
 const app = express();
+app.use(statusMonitor({ path: "/status" }));
 app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("Backend po funksionon!");
+});
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", service: "backend-server" });
 });
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));

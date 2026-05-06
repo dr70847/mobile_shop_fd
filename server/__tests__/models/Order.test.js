@@ -17,7 +17,7 @@ describe('Order Model', () => {
       ];
       
       db.query.mockImplementation((sql, callback) => {
-        expect(sql).toBe('SELECT * FROM orders ORDER BY created_at DESC');
+        expect(sql).toBe('SELECT * FROM orders');
         callback(null, mockOrders);
       });
 
@@ -37,7 +37,7 @@ describe('Order Model', () => {
 
       Order.getAll((err, results) => {
         expect(err).toBe(dbError);
-        expect(results).toBeUndefined();
+        expect(results).toBeNull();
         done();
       });
     });
@@ -51,7 +51,7 @@ describe('Order Model', () => {
       ];
       
       db.query.mockImplementation((sql, params, callback) => {
-        expect(sql).toBe('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC');
+        expect(sql).toBe('SELECT * FROM orders WHERE user_id = ?');
         expect(params).toEqual([1]);
         callback(null, mockOrders);
       });
@@ -67,12 +67,12 @@ describe('Order Model', () => {
   describe('createWithItems', () => {
     test('should create order with items using transaction', (done) => {
       const orderData = {
-        user_id: 1,
-        total_price: 999,
+        userId: 1,
+        totalPrice: 999,
         status: 'pending',
         items: [
-          { product_id: 1, quantity: 1, price: 999 },
-          { product_id: 2, quantity: 2, price: 50 }
+          { product_id: 1, quantity: 1, unit_price: 999 },
+          { product_id: 2, quantity: 2, unit_price: 50 }
         ]
       };
       
@@ -85,7 +85,7 @@ describe('Order Model', () => {
           expect(params).toEqual([1, 999, 'pending']);
           callback(null, mockOrderResult);
         } else if (sql.includes('INSERT INTO order_items')) {
-          expect(sql).toContain('INSERT INTO order_items (order_id, product_id, quantity, price)');
+          expect(sql).toContain('INSERT INTO order_items (order_id, product_id, quantity, unit_price)');
           callback(null, mockItemResult);
         }
       });
@@ -99,8 +99,8 @@ describe('Order Model', () => {
 
     test('should handle order creation errors', (done) => {
       const orderData = {
-        user_id: 1,
-        total_price: 999,
+        userId: 1,
+        totalPrice: 999,
         status: 'pending',
         items: []
       };

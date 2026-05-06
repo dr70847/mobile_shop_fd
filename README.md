@@ -120,6 +120,35 @@ mobile-shop/
 
 This README is a **project map** so you can quickly remember what each part does and how to run it end-to-end.
 
+---
+
+## Observability and monitoring
+
+- Health endpoints are enabled for each API service (`/health`) and status dashboards are available on Node services via `/status`.
+- Centralized logging stack is prepared in `infra/observability/` with **Grafana Loki + Promtail**.
+- Metrics collection is configured with **Prometheus** (`infra/observability/prometheus/prometheus.yml`) and visualized in **Grafana**.
+
+Run observability locally:
+
+```bash
+cd infra/observability
+docker compose -f docker-compose.observability.yml up -d
+```
+
+---
+
+## Deployment and CI/CD
+
+- Each major component has a dedicated `Dockerfile` (`server`, `gateway`, `client`, `auth-service`, `catalog-service`, `order-service`).
+- Kubernetes manifests are available in `k8s/mobile-shop.yaml` (deployment, service, HPA).
+- Helm chart skeleton is available in `helm/mobile-shop/` for staged/prod-style releases.
+- CI/CD workflow is defined in `.github/workflows/ci-cd.yml` with stages:
+  1. lint + unit tests
+  2. Docker image builds
+  3. deploy to test environment (placeholder command)
+  4. integration tests
+  5. staging/production helm deploy gate on `main`
+
 ## Supporting model diagrams
 
 See `DIAGRAMAT_MBESHTETESE_MODELIT.md` for:

@@ -13,7 +13,7 @@ The MobileShop application implements a comprehensive multi-layered testing stra
 
 ### 3.2. Integration Testing
 - **API Integration**: Newman/Postman for end-to-end API testing
-- **Docker Integration**: TestContainers for isolated test environments
+- **Docker Integration**: TestContainers and Docker Compose for isolated test environments
 - **Frontend-Backend Integration**: Full stack testing scenarios
 
 ### 3.3. End-to-End Testing (E2E)
@@ -48,6 +48,9 @@ npm run test:coverage
 
 # Run integration tests
 npm run test:integration
+
+# Run integration tests with TestContainers (ephemeral MySQL container)
+npm run test:integration:tc
 
 # Run Docker-based integration tests
 npm run test:docker

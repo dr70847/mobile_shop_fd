@@ -1,0 +1,6 @@
+gateway:
+  image: ghcr.io/your-org/mobile-shop-gateway
+  tag: latest
+  replicas: 2
+  servicePort: 80
+  containerPort: 8080

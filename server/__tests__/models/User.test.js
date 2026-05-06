@@ -92,6 +92,7 @@ describe('User Model', () => {
 
     test('should handle backward compatibility for missing 2FA columns', (done) => {
       const badFieldError = new Error('ER_BAD_FIELD_ERROR');
+      badFieldError.code = 'ER_BAD_FIELD_ERROR';
       const mockUser = { id: 1, name: 'John Doe', email: 'john@example.com', is_admin: 0, created_at: new Date() };
       
       db.query

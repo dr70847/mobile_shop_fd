@@ -16,3 +16,10 @@ global.console = {
 
 // Set timeout for async operations
 jest.setTimeout(10000);
+
+// Avoid ESM parsing issues from otplib transitive dependencies in Jest CJS runs.
+jest.mock('otplib', () => ({
+  generateSecret: jest.fn(() => 'TEST_2FA_SECRET'),
+  generateURI: jest.fn(() => 'otpauth://totp/MobileShop:test@example.com?secret=TEST_2FA_SECRET'),
+  verifySync: jest.fn(() => true),
+}));

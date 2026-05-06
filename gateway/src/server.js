@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const statusMonitor = require("express-status-monitor");
 const rateLimit = require("express-rate-limit");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const { resolveServiceUrl } = require("./serviceDiscovery");
@@ -9,6 +10,7 @@ dotenv.config();
 
 const app = express();
 app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS) || 1);
+app.use(statusMonitor({ path: "/status" }));
 app.use(cors());
 app.use(express.json());
 

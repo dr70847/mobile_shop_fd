@@ -1,10 +1,14 @@
 const request = require('supertest');
 const app = require('../../app');
 const mysql = require('mysql2/promise');
+const { GenericContainer, Wait } = require('testcontainers');
+const path = require('path');
+const fs = require('fs');
 
 // Test database configuration
-const testDbConfig = {
+let testDbConfig = {
   host: process.env.TEST_DB_HOST || 'localhost',
+  port: Number(process.env.TEST_DB_PORT || 3306),
   user: process.env.TEST_DB_USER || 'root',
   password: process.env.TEST_DB_PASSWORD || '',
   database: process.env.TEST_DB_NAME || 'mobileshop_test',
@@ -15,14 +19,49 @@ const testDbConfig = {
 
 describe('API Integration Tests', () => {
   let connection;
+  let dbContainer;
   let authToken;
   let adminToken;
   let testUserId;
   let testProductId;
 
   beforeAll(async () => {
+    if (process.env.USE_TESTCONTAINERS === 'true') {
+      dbContainer = await new GenericContainer('mysql:8.0')
+        .withEnvironment({
+          MYSQL_ROOT_PASSWORD: process.env.TEST_DB_PASSWORD || 'testpass',
+          MYSQL_DATABASE: process.env.TEST_DB_NAME || 'mobileshop_test',
+          MYSQL_USER: process.env.TEST_DB_USER || 'testuser',
+          MYSQL_PASSWORD: process.env.TEST_DB_PASSWORD || 'testpass'
+        })
+        .withExposedPorts(3306)
+        .withWaitStrategy(Wait.forLogMessage('ready for connections'))
+        .start();
+
+      testDbConfig = {
+        ...testDbConfig,
+        host: dbContainer.getHost(),
+        port: dbContainer.getMappedPort(3306),
+        user: process.env.TEST_DB_USER || 'testuser',
+        password: process.env.TEST_DB_PASSWORD || 'testpass',
+        database: process.env.TEST_DB_NAME || 'mobileshop_test'
+      };
+    }
+
     // Setup test database connection
     connection = await mysql.createConnection(testDbConfig);
+
+    if (process.env.USE_TESTCONTAINERS === 'true') {
+      const schemaPath = path.join(__dirname, 'test-schema.sql');
+      const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+      const statements = schemaSQL
+        .split(';')
+        .map((stmt) => stmt.trim())
+        .filter(Boolean);
+      for (const statement of statements) {
+        await connection.query(statement);
+      }
+    }
     
     // Clean up test data
     await connection.execute('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (SELECT id FROM users WHERE email LIKE "%test%@%"))');
@@ -34,6 +73,9 @@ describe('API Integration Tests', () => {
   afterAll(async () => {
     if (connection) {
       await connection.end();
+    }
+    if (dbContainer) {
+      await dbContainer.stop();
     }
   });
 

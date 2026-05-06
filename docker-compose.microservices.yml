@@ -94,12 +94,10 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
   auth-service:
-    image: node:20-alpine
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
     container_name: auth-service
-    working_dir: /app
-    volumes:
-      - ./services/auth-service:/app
-    command: sh -c "npm install && npm start"
     environment:
       PORT: 4001
       DB_HOST: mysql
@@ -111,16 +109,19 @@ services:
     depends_on:
       - mysql
       - rabbitmq
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4001/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
     ports:
       - "4001:4001"
 
   catalog-service:
-    image: node:20-alpine
+    build:
+      context: ./services/catalog-service
+      dockerfile: Dockerfile
     container_name: catalog-service
-    working_dir: /app
-    volumes:
-      - ./services/catalog-service:/app
-    command: sh -c "npm install && npm start"
     environment:
       PORT: 4002
       GRPC_PORT: 50052
@@ -135,17 +136,20 @@ services:
       - mysql
       - kafka
       - redis
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4002/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
     ports:
       - "4002:4002"
       - "50052:50052"
 
   order-service:
-    image: node:20-alpine
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
     container_name: order-service
-    working_dir: /app
-    volumes:
-      - ./services/order-service:/app
-    command: sh -c "npm install && npm start"
     environment:
       PORT: 4003
       RABBITMQ_URL: amqp://rabbitmq:5672
@@ -164,6 +168,11 @@ services:
       - rabbitmq
       - kafka
       - catalog-service
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4003/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
     ports:
       - "4003:4003"
 
@@ -201,12 +210,10 @@ services:
       - "8001:8001"
 
   gateway:
-    image: node:20-alpine
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
     container_name: mobile-shop-gateway
-    working_dir: /app
-    volumes:
-      - ./gateway:/app
-    command: sh -c "npm install && npm start"
     environment:
       PORT: 8080
       AUTH_SERVICE_URL: http://auth-service:4001
@@ -223,6 +230,11 @@ services:
       - inventory-service
       - admin-service
       - eureka-server
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
     ports:
       - "8080:8080"
 

@@ -28,7 +28,7 @@ describe('Authentication Middleware', () => {
         .get('/api/v1/orders/my');
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toContain('Unauthorized');
+      expect(res.body.message).toContain('Missing auth token');
     });
 
     test('should reject request with invalid token', async () => {
@@ -37,7 +37,7 @@ describe('Authentication Middleware', () => {
         .set('Authorization', 'Bearer invalid-token');
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toContain('Unauthorized');
+      expect(res.body.message).toContain('Invalid or expired token');
     });
 
     test('should reject request with malformed token', async () => {
@@ -81,7 +81,7 @@ describe('Authentication Middleware', () => {
         .send({ name: 'Test Product', price: 100, stock: 5 });
 
       expect(res.status).toBe(403);
-      expect(res.body.error).toContain('Forbidden');
+      expect(res.body.message).toContain('Admin access required');
     });
   });
 
