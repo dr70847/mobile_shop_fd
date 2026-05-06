@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { validateUserInput } = require('../middleware/security');
 const { ProductEntity } = require('../domain/entities');
 
 const adminChain = [requireAuth, requireAdmin];
@@ -21,12 +22,12 @@ function withLinks(req, product) {
     };
 }
 
-router.post('/', ...adminChain, (req, res) => {
+router.post('/', ...adminChain, validateUserInput.product, (req, res) => {
     const entity = new ProductEntity({
         name: req.body?.name,
         description: req.body?.description,
         price: req.body?.price,
-        stock: req.body?.stock,
+        stock: req.body?.stock_quantity,
     });
     try {
         entity.validatePricing();
@@ -56,7 +57,7 @@ router.post('/', ...adminChain, (req, res) => {
     );
 });
 
-router.put('/:id', ...adminChain, (req, res) => {
+router.put('/:id', ...adminChain, validateUserInput.orderId, validateUserInput.product, (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) {
         return res.status(400).json({ message: 'Invalid product id.' });

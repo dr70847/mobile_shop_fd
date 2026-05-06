@@ -1,11 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const statusMonitor = require("express-status-monitor");
 const swaggerUi = require("swagger-ui-express");
 const fs = require("fs");
 const path = require("path");
 const { apiLimiter } = require("./middleware/rateLimit");
 const { cacheMiddleware } = require("./middleware/cache");
+const { sanitizeInput, sqlInjectionProtection } = require("./middleware/security");
 const { openApiSpec } = require("./docs/openapi");
 const { modules } = require("./modules/registry");
 
@@ -17,9 +19,41 @@ const paymentRoutes = require("./routes/payments");
 const shipmentRoutes = require("./routes/shipments");
 
 const app = express();
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      scriptSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      manifestSrc: ["'self'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true,
+  frameguard: { action: 'deny' },
+  xssFilter: true
+}));
+
 app.use(statusMonitor({ path: "/status" }));
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Input sanitization and SQL injection protection
+app.use(sanitizeInput);
+app.use(sqlInjectionProtection);
 
 app.get("/", (req, res) => {
   res.send("Backend po funksionon!");
