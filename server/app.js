@@ -20,6 +20,10 @@ const shipmentRoutes = require("./routes/shipments");
 
 const app = express();
 
+if (process.env.NODE_ENV === "production" || process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -47,7 +51,16 @@ app.use(helmet({
 }));
 
 app.use(statusMonitor({ path: "/status" }));
-app.use(cors());
+
+const corsOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(",").map((s) => s.trim()).filter(Boolean)
+  : true;
+app.use(
+  cors({
+    origin: corsOrigins,
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

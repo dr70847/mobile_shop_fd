@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import axios from 'axios';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import './index.css';
@@ -8,6 +9,11 @@ import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './auth/AuthContext';
 import { store } from './store/store';
 import { NotificationProvider } from './ui/NotificationContext';
+
+const apiBase = (process.env.REACT_APP_API_URL || '').replace(/\/+$/, '');
+if (apiBase) {
+  axios.defaults.baseURL = apiBase;
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

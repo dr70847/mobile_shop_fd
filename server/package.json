@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
+    "start:production": "node server.production.js",
     "dev": "nodemon server.js",
     "ssl:generate": "node scripts/generate-cert.js",
     "test": "jest --runInBand --testPathIgnorePatterns=__tests__/integration",
